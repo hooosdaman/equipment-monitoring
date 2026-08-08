@@ -21,16 +21,23 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, currentUser }) => {
-  const canSeeAccounts = currentUser?.role === 'superuser' || currentUser?.role === 'admin';
+const canSeeAccounts = currentUser?.role === 'superuser' || currentUser?.role === 'admin';
 
-  const menuItems = [
+  // User (helpdesk) role: read-only access to Dashboard, Weekly PM, and Defect Reports only.
+  const menuItems: { id: string; label: string; icon: React.ComponentType<{ className?: string }>; badge?: string }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'need_action', label: 'Need Action', icon: AlertTriangle, badge: 'SYNC' },
-    { id: 'defect_reports', label: 'Defect Reports', icon: FileText },
-    { id: 'pm_masterlist', label: 'PM Masterlist', icon: CalendarCheck },
-    { id: 'weekly_pm', label: 'Weekly PM', icon: Clock },
-    { id: 'equipment_status', label: 'Equipment Status', icon: Cpu },
   ];
+
+  if (currentUser?.role === 'user') {
+    menuItems.push({ id: 'weekly_pm', label: 'Weekly PM', icon: Clock });
+    menuItems.push({ id: 'defect_reports', label: 'Defect Reports', icon: FileText });
+  } else {
+    menuItems.push({ id: 'need_action', label: 'Need Action', icon: AlertTriangle, badge: 'SYNC' });
+    menuItems.push({ id: 'defect_reports', label: 'Defect Reports', icon: FileText });
+    menuItems.push({ id: 'pm_masterlist', label: 'PM Masterlist', icon: CalendarCheck });
+    menuItems.push({ id: 'weekly_pm', label: 'Weekly PM', icon: Clock });
+    menuItems.push({ id: 'equipment_status', label: 'Equipment Status', icon: Cpu });
+  }
 
   if (canSeeAccounts) {
     menuItems.push({ id: 'accounts', label: 'Accounts', icon: Users });

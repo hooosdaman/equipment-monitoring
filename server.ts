@@ -176,10 +176,10 @@ async function startServer() {
       return res.status(404).json({ error: 'Account not found' });
     }
 
-    // Permissions check:
+// Permissions check:
     // superuser can edit all accounts
-    // admin can only edit admin and user accounts (manager, helpdesk)
-    if (currentUser.role === 'admin' && targetUser.role === 'superuser') {
+    // admin can edit admin, engineer, and user accounts (not superuser)
+    if (currentUser.role === 'admin' && (targetUser.role === 'superuser')) {
       return res.status(403).json({ error: 'Admins cannot edit superuser accounts' });
     }
     if (currentUser.role !== 'superuser' && currentUser.role !== 'admin') {
@@ -407,7 +407,12 @@ async function startServer() {
     res.json(items);
   });
 
-  app.post('/api/weekly-pm', authenticateToken, (req: AuthRequest, res: Response) => {
+app.post('/api/weekly-pm', authenticateToken, (req: AuthRequest, res: Response) => {
+    const userRole = req.user?.role;
+    if (userRole === 'user') {
+      return res.status(403).json({ error: 'Helpdesk users can only view Weekly PM schedules' });
+    }
+
     const { equipment_name, system, location, pm_type, scheduled_date, week_number, assigned_to, status } = req.body;
     const now = new Date().toISOString();
 
@@ -428,7 +433,12 @@ async function startServer() {
     res.status(201).json(created);
   });
 
-  app.put('/api/weekly-pm/:id', authenticateToken, (req: AuthRequest, res: Response) => {
+app.put('/api/weekly-pm/:id', authenticateToken, (req: AuthRequest, res: Response) => {
+    const userRole = req.user?.role;
+    if (userRole === 'user') {
+      return res.status(403).json({ error: 'Helpdesk users can only view Weekly PM schedules' });
+    }
+
     const id = parseInt(req.params.id, 10);
     const { status, assigned_to, scheduled_date } = req.body;
 
@@ -460,7 +470,12 @@ async function startServer() {
     res.json(reports);
   });
 
-  app.post('/api/defect-reports', authenticateToken, (req: AuthRequest, res: Response) => {
+app.post('/api/defect-reports', authenticateToken, (req: AuthRequest, res: Response) => {
+    const userRole = req.user?.role;
+    if (userRole === 'user') {
+      return res.status(403).json({ error: 'Helpdesk users cannot create or edit defect reports' });
+    }
+
     const { equipment_name, date_reported, findings, attended_by, status, remarks, photo_url } = req.body;
 
     if (!equipment_name || !findings) {

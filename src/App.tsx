@@ -376,11 +376,12 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'defect_reports' && (
+{activeTab === 'defect_reports' && (
             <DefectReportsView
               reports={defectReports}
               equipmentList={equipmentList}
               onSubmitReport={handleLogDefectReport}
+              currentUser={currentUser}
             />
           )}
 
@@ -394,11 +395,12 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'weekly_pm' && (
+{activeTab === 'weekly_pm' && (
             <WeeklyPmView
               schedule={weeklyPm}
               onUpdateStatus={handleUpdateWeeklyPmStatus}
               onAddSchedule={handleAddWeeklyPm}
+              currentUser={currentUser}
             />
           )}
 

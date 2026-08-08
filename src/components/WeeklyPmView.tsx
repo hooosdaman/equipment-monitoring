@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import { Clock, CheckCircle2, XCircle, AlertCircle, Calendar, Plus, UserCheck } from 'lucide-react';
-import { WeeklyPmItem, WeeklyPmStatus } from '../types';
+import { WeeklyPmItem, WeeklyPmStatus, User } from '../types';
 
 interface WeeklyPmViewProps {
   schedule: WeeklyPmItem[];
   onUpdateStatus: (id: number, status: WeeklyPmStatus) => Promise<void>;
   onAddSchedule: (data: Partial<WeeklyPmItem>) => Promise<void>;
+  currentUser: User | null;
 }
 
-export const WeeklyPmView: React.FC<WeeklyPmViewProps> = ({ schedule, onUpdateStatus, onAddSchedule }) => {
+export const WeeklyPmView: React.FC<WeeklyPmViewProps> = ({ schedule, onUpdateStatus, onAddSchedule, currentUser }) => {
+  const isReadOnly = currentUser?.role === 'user';
   const [showAddModal, setShowAddModal] = useState(false);
   const [newItem, setNewItem] = useState({
     equipment_name: '',
@@ -54,12 +56,14 @@ export const WeeklyPmView: React.FC<WeeklyPmViewProps> = ({ schedule, onUpdateSt
           </div>
         </div>
 
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="px-3.5 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-mono font-bold text-xs uppercase flex items-center gap-1.5 transition shadow-lg shadow-emerald-950/50"
-        >
-          <Plus className="w-4 h-4" /> Schedule New PM Task
-        </button>
+{!isReadOnly && (
+          <button
+            onClick={() => setShowAddModal(true)}
+            className="px-3.5 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-mono font-bold text-xs uppercase flex items-center gap-1.5 transition shadow-lg shadow-emerald-950/50"
+          >
+            <Plus className="w-4 h-4" /> Schedule New PM Task
+          </button>
+        )}
       </div>
 
       {/* SCHEDULE TABLE */}
@@ -72,8 +76,8 @@ export const WeeklyPmView: React.FC<WeeklyPmViewProps> = ({ schedule, onUpdateSt
               <th className="p-3">Location</th>
               <th className="p-3">PM Task Type</th>
               <th className="p-3">Scheduled Date</th>
-              <th className="p-3">Assigned Technician</th>
-              <th className="p-3">Status Action</th>
+<th className="p-3">Assigned Technician</th>
+              <th className="p-3">{isReadOnly ? 'Status' : 'Status Action'}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800/60">
@@ -85,22 +89,34 @@ export const WeeklyPmView: React.FC<WeeklyPmViewProps> = ({ schedule, onUpdateSt
                 <td className="p-3 text-slate-200">{item.pm_type}</td>
                 <td className="p-3 text-slate-300 font-semibold">{item.scheduled_date} (W{item.week_number})</td>
                 <td className="p-3 text-slate-300">{item.assigned_to}</td>
-                <td className="p-3">
-                  <select
-                    value={item.status}
-                    onChange={(e) => onUpdateStatus(item.id, e.target.value as WeeklyPmStatus)}
-                    className={`text-[11px] font-bold px-2.5 py-1 rounded bg-slate-950 border uppercase cursor-pointer focus:outline-none ${
+<td className="p-3">
+                  {isReadOnly ? (
+                    <span className={`inline-block px-2.5 py-1 rounded text-[11px] font-bold uppercase ${
                       item.status === 'completed'
-                        ? 'text-emerald-400 border-emerald-500/30'
+                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
                         : item.status === 'cancelled'
-                        ? 'text-red-400 border-red-500/30'
-                        : 'text-amber-400 border-amber-500/30'
-                    }`}
-                  >
-                    <option value="scheduled">SCHEDULED</option>
-                    <option value="completed">COMPLETED</option>
-                    <option value="cancelled">CANCELLED</option>
-                  </select>
+                        ? 'bg-red-500/10 text-red-400 border border-red-500/30'
+                        : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                    }`}>
+                      {item.status}
+                    </span>
+                  ) : (
+                    <select
+                      value={item.status}
+                      onChange={(e) => onUpdateStatus(item.id, e.target.value as WeeklyPmStatus)}
+                      className={`text-[11px] font-bold px-2.5 py-1 rounded bg-slate-950 border uppercase cursor-pointer focus:outline-none ${
+                        item.status === 'completed'
+                          ? 'text-emerald-400 border-emerald-500/30'
+                          : item.status === 'cancelled'
+                          ? 'text-red-400 border-red-500/30'
+                          : 'text-amber-400 border-amber-500/30'
+                      }`}
+                    >
+                      <option value="scheduled">SCHEDULED</option>
+                      <option value="completed">COMPLETED</option>
+                      <option value="cancelled">CANCELLED</option>
+                    </select>
+                  )}
                 </td>
               </tr>
             ))}

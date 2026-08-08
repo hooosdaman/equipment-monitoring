@@ -15,10 +15,10 @@ export const AccountsView: React.FC<AccountsViewProps> = ({ accounts, currentUse
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
-  const canEditRole = (targetRole: string) => {
+const canEditRole = (targetRole: string) => {
     if (currentUser?.role === 'superuser') return true;
     if (currentUser?.role === 'admin') {
-      return targetRole === 'admin' || targetRole === 'user';
+      return targetRole === 'admin' || targetRole === 'engineer' || targetRole === 'user';
     }
     return false;
   };
@@ -57,7 +57,7 @@ export const AccountsView: React.FC<AccountsViewProps> = ({ accounts, currentUse
           <div>
             <h1 className="text-lg font-bold font-mono text-white">Accounts & Role Permissions</h1>
             <p className="text-xs text-slate-400 font-mono">
-              Role permissions: <strong className="text-amber-400">Superuser</strong> edits all accounts; <strong className="text-emerald-400">Admin</strong> edits Admin & User credentials.
+Role permissions: <strong className="text-amber-400">Superuser</strong> edits all accounts; <strong className="text-emerald-400">Admin</strong> edits Admin, Engineer & User credentials.
             </p>
           </div>
         </div>
@@ -106,7 +106,7 @@ export const AccountsView: React.FC<AccountsViewProps> = ({ accounts, currentUse
                   </td>
                   <td className="p-3 text-slate-400 text-[11px]">
                     {acc.role === 'superuser' && 'Full System Control + Settings + All Accounts'}
-                    {acc.role === 'admin' && 'Equipment Edit + PM + Admin & User Accounts'}
+{acc.role === 'admin' && 'Equipment Edit + PM + Admin, Engineer & User Accounts'}
                     {acc.role === 'engineer' && 'Equipment Edit + PM + Defect Logging'}
                     {acc.role === 'user' && 'Helpdesk Read-Only Equipment + Defect/Need Action Log'}
                   </td>

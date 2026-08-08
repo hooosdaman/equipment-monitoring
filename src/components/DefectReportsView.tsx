@@ -1,18 +1,21 @@
 import React, { useState } from 'react';
-import { FileText, Plus, Upload, CheckCircle2, AlertOctagon, Wrench, Image as ImageIcon } from 'lucide-react';
-import { DefectReport, DefectStatus, Equipment } from '../types';
+import { FileText, Plus, Upload, CheckCircle2, AlertOctagon, Wrench, Image as ImageIcon, Lock } from 'lucide-react';
+import { DefectReport, DefectStatus, Equipment, User } from '../types';
 
 interface DefectReportsViewProps {
   reports: DefectReport[];
   equipmentList: Equipment[];
   onSubmitReport: (data: Partial<DefectReport>) => Promise<void>;
+  currentUser: User | null;
 }
 
 export const DefectReportsView: React.FC<DefectReportsViewProps> = ({
   reports,
   equipmentList,
-  onSubmitReport
+  onSubmitReport,
+  currentUser
 }) => {
+  const isReadOnly = currentUser?.role === 'user';
   const [dateReported, setDateReported] = useState(new Date().toISOString().split('T')[0]);
   const [equipmentName, setEquipmentName] = useState(equipmentList[0]?.equipment_name || 'Chiller-01');
   const [findings, setFindings] = useState('');
@@ -84,8 +87,15 @@ export const DefectReportsView: React.FC<DefectReportsViewProps> = ({
         </div>
       )}
 
+{isReadOnly && (
+        <div className="p-3 rounded-lg bg-slate-800/40 border border-slate-700 text-slate-300 text-xs font-mono flex items-center gap-2">
+          <Lock className="w-4 h-4 text-slate-400" /> You have <strong>view-only</strong> access to Defect Reports. Creating or editing defect logs requires an Admin or Engineer account.
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* LOG DEFECT REPORT FORM */}
+        {!isReadOnly && (
         <div className="p-5 rounded-xl bg-slate-900 border border-slate-800 shadow-xl space-y-4">
           <h2 className="text-sm font-mono font-bold text-white uppercase border-b border-slate-800 pb-3 flex items-center gap-2">
             <Plus className="w-4 h-4 text-amber-400" /> Log Defect Report
@@ -185,11 +195,12 @@ export const DefectReportsView: React.FC<DefectReportsViewProps> = ({
             >
               {isSubmitting ? 'Logging...' : 'Submit Defect Report'}
             </button>
-          </form>
+</form>
         </div>
+        )}
 
         {/* REPAIR LOGS TABLE */}
-        <div className="lg:col-span-2 p-5 rounded-xl bg-slate-900 border border-slate-800 shadow-xl space-y-4">
+        <div className={`${isReadOnly ? 'lg:col-span-3' : 'lg:col-span-2'} p-5 rounded-xl bg-slate-900 border border-slate-800 shadow-xl space-y-4`}>
           <div className="flex items-center justify-between border-b border-slate-800 pb-3">
             <h2 className="text-sm font-mono font-bold text-white uppercase flex items-center gap-2">
               <Wrench className="w-4 h-4 text-amber-400" /> Master Repair Logs ({reports.length})
