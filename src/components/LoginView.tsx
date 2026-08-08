@@ -29,12 +29,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
     }
   };
 
-  const setDemoCreds = (usr: string, pass: string) => {
-    setUsername(usr);
-    setPassword(pass);
-    setErrorMsg('');
-  };
-
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4 relative overflow-hidden">
       {/* Background Grid Pattern & Glowing Forex Orbs */}
@@ -137,47 +131,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
             </button>
           </form>
 
-          {/* Quick Demo Credentials */}
-          <div className="mt-6 pt-4 border-t border-slate-800/80">
-            <p className="text-[11px] font-mono text-slate-400 mb-2 uppercase text-center">Quick Demo Roles</p>
-            <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
-              <button
-                type="button"
-                onClick={() => setDemoCreds('superadmin', 'niceday1%')}
-                className="p-2 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 text-left transition"
-              >
-                <div className="font-semibold text-amber-400">Superuser</div>
-                <div className="text-[10px] text-slate-500">superadmin / niceday1%</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setDemoCreds('manager', 'qwerty1%')}
-                className="p-2 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 text-left transition"
-              >
-                <div className="font-semibold text-emerald-400">Admin</div>
-                <div className="text-[10px] text-slate-500">manager / qwerty1%</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setDemoCreds('engineer', 'abc123%')}
-                className="p-2 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 text-left transition"
-              >
-                <div className="font-semibold text-cyan-400">Engineer</div>
-                <div className="text-[10px] text-slate-500">engineer / abc123%</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setDemoCreds('helpdesk', 'abc123%')}
-                className="p-2 rounded bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 text-left transition"
-              >
-                <div className="font-semibold text-slate-400">Helpdesk (User)</div>
-                <div className="text-[10px] text-slate-500">helpdesk / abc123%</div>
-              </button>
-            </div>
-          </div>
         </div>
 
         <p className="text-center text-[11px] text-slate-500 font-mono mt-4">
