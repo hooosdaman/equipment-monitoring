@@ -205,8 +205,8 @@ export const DefectReportsView: React.FC<DefectReportsViewProps> = ({
         {/* REPAIR LOGS TABLE */}
         <div className={`${isReadOnly ? 'lg:col-span-3' : 'lg:col-span-2'} p-5 rounded-xl bg-slate-900 border border-slate-800 shadow-xl space-y-4`}>
           <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-<h2 className="text-sm font-mono font-bold text-white uppercase flex items-center gap-2">
-              <Wrench className="w-4 h-4 text-amber-400" /> Master Repair Logs ({reports.length})
+              <h2 className="text-sm font-mono font-bold text-white uppercase flex items-center gap-2">
+              <Wrench className="w-4 h-4 text-amber-400" /> Repair Logs ({reports.length})
             </h2>
           </div>
 
@@ -242,12 +242,10 @@ export const DefectReportsView: React.FC<DefectReportsViewProps> = ({
                             'text-emerald-400 border-emerald-500/30'
                           }`}
                         >
-                          <option value="Open">OPEN</option>
-                          <option value="Minor">MINOR</option>
-                          <option value="Critical">CRITICAL</option>
-                          <option value="Ongoing">ONGOING</option>
-                          <option value="Done">DONE</option>
-                          <option value="Repaired">REPAIRED</option>
+                          <option value="Minor">Minor Defect (Equipment Warning)</option>
+                          <option value="Critical">Critical Defect (Equipment Offline/Down)</option>
+                          <option value="Ongoing">Ongoing Repair</option>
+                          <option value="Done">Done / Repaired (Restores Operational)</option>
                         </select>
                       ) : (
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
