@@ -133,8 +133,8 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLogin }) => {
 
         </div>
 
-        <p className="text-center text-[11px] text-slate-500 font-mono mt-4">
-          Equipment Status SaaS Node Service • Powered by SQLite & Supabase Sync
+<p className="text-center text-[11px] text-slate-500 font-mono mt-4">
+          Equipment Status SaaS Node Service
         </p>
       </div>
     </div>
