@@ -1,0 +1,6 @@
+{
+  "name": "Equipment Status",
+  "description": "High-performance Forex-styled Equipment Maintenance, PM Masterlist, Repair Logs & Status Tracker.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
