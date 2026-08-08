@@ -10,7 +10,10 @@ import {
   syncEquipmentToSupabase,
   deleteEquipmentFromSupabase,
   syncNeedActionToSupabase,
-  syncWeeklyPmToSupabase
+  syncDefectReportToSupabase,
+  syncWeeklyPmToSupabase,
+  deleteWeeklyPmFromSupabase,
+  syncWeeklyPmToPmLogs
 } from './src/server/supabaseSync';
 
 dotenv.config();
@@ -447,7 +450,7 @@ app.put('/api/weekly-pm/:id', authenticateToken, (req: AuthRequest, res: Respons
       return res.status(404).json({ error: 'Weekly PM entry not found' });
     }
 
-    const now = new Date().toISOString();
+const now = new Date().toISOString();
     db.run(
       `UPDATE weekly_pm_schedule SET status = ?, assigned_to = ?, scheduled_date = ?, updated_at = ? WHERE id = ?`,
       [status || existing.status, assigned_to || existing.assigned_to, scheduled_date || existing.scheduled_date, now, id]
@@ -456,12 +459,39 @@ app.put('/api/weekly-pm/:id', authenticateToken, (req: AuthRequest, res: Respons
 
     const updated = queryOne(db, 'SELECT * FROM weekly_pm_schedule WHERE id = ?', [id]);
 
-    // Sync to Supabase weekly_pm_schedule
+    // Always sync status updates to Supabase weekly_pm_schedule
     if (updated) {
       syncWeeklyPmToSupabase(updated);
     }
 
+    // When completed or cancelled, also log to Supabase pm_logs
+    if (updated && (updated.status === 'completed' || updated.status === 'cancelled')) {
+      syncWeeklyPmToPmLogs(updated);
+    }
+
     res.json(updated);
+  });
+
+  // Delete Weekly PM schedule item (also removes from Supabase weekly_pm_schedule)
+  app.delete('/api/weekly-pm/:id', authenticateToken, (req: AuthRequest, res: Response) => {
+    const userRole = req.user?.role;
+    if (userRole === 'user') {
+      return res.status(403).json({ error: 'Helpdesk users cannot delete Weekly PM schedules' });
+    }
+
+    const id = parseInt(req.params.id, 10);
+    const existing = queryOne(db, 'SELECT * FROM weekly_pm_schedule WHERE id = ?', [id]);
+    if (!existing) {
+      return res.status(404).json({ error: 'Weekly PM entry not found' });
+    }
+
+    db.run('DELETE FROM weekly_pm_schedule WHERE id = ?', [id]);
+    saveDb();
+
+    // Sync deletion to Supabase weekly_pm_schedule
+    deleteWeeklyPmFromSupabase(id);
+
+    res.json({ message: 'Weekly PM schedule deleted successfully', id });
   });
 
   // Defect Reports / Repair Logs Endpoints
@@ -499,12 +529,53 @@ app.post('/api/defect-reports', authenticateToken, (req: AuthRequest, res: Respo
       ]
     );
 
-    const created = queryOne(db, 'SELECT * FROM defect_reports WHERE id = ?', [result.lastInsertRowid]);
+const created = queryOne(db, 'SELECT * FROM defect_reports WHERE id = ?', [result.lastInsertRowid]);
+
+    // Sync the new defect report to Supabase repair_logs table
+    if (created) {
+      syncDefectReportToSupabase(created);
+    }
 
     // Automatically adjust equipment status based on repair logs!
     const updatedStatus = adjustEquipmentStatus(equipment_name);
 
     res.status(201).json({ report: created, updatedEquipmentStatus: updatedStatus });
+  });
+
+  // Update defect report status / remarks (engineer, admin, superuser only)
+  app.put('/api/defect-reports/:id', authenticateToken, (req: AuthRequest, res: Response) => {
+    const userRole = req.user?.role;
+    if (userRole === 'user') {
+      return res.status(403).json({ error: 'Helpdesk users cannot edit defect reports' });
+    }
+
+    const id = parseInt(req.params.id, 10);
+    const { status, remarks, attended_by } = req.body;
+
+    const existing = queryOne(db, 'SELECT * FROM defect_reports WHERE id = ?', [id]);
+    if (!existing) {
+      return res.status(404).json({ error: 'Defect report not found' });
+    }
+
+    db.run('UPDATE defect_reports SET status = ?, remarks = ?, attended_by = ? WHERE id = ?', [
+      status || existing.status,
+      remarks !== undefined ? remarks : existing.remarks,
+      attended_by || existing.attended_by,
+      id
+    ]);
+    saveDb();
+
+    const updated = queryOne(db, 'SELECT * FROM defect_reports WHERE id = ?', [id]);
+
+    // Sync updated defect report to Supabase repair_logs table
+    if (updated) {
+      syncDefectReportToSupabase(updated);
+    }
+
+    // Automatically adjust equipment status based on the updated repair log
+    adjustEquipmentStatus(updated.equipment_name);
+
+    res.json(updated);
   });
 
   // Need Action Endpoints

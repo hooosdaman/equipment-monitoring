@@ -108,7 +108,7 @@ Role permissions: <strong className="text-amber-400">Superuser</strong> edits al
                     {acc.role === 'superuser' && 'Full System Control + Settings + All Accounts'}
 {acc.role === 'admin' && 'Equipment Edit + PM + Admin, Engineer & User Accounts'}
                     {acc.role === 'engineer' && 'Equipment Edit + PM + Defect Logging'}
-                    {acc.role === 'user' && 'Helpdesk Read-Only Equipment + Defect/Need Action Log'}
+                    {acc.role === 'user' && 'Helpdesk Read-Only: Dashboard + Weekly PM View + Defect Reports View Only'}
                   </td>
                   <td className="p-3 text-center">
                     {editable ? (

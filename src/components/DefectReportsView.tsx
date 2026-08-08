@@ -6,6 +6,7 @@ interface DefectReportsViewProps {
   reports: DefectReport[];
   equipmentList: Equipment[];
   onSubmitReport: (data: Partial<DefectReport>) => Promise<void>;
+  onUpdateStatus: (id: number, status: DefectStatus, remarks?: string) => Promise<void>;
   currentUser: User | null;
 }
 
@@ -13,9 +14,11 @@ export const DefectReportsView: React.FC<DefectReportsViewProps> = ({
   reports,
   equipmentList,
   onSubmitReport,
+  onUpdateStatus,
   currentUser
 }) => {
   const isReadOnly = currentUser?.role === 'user';
+  const canEditStatus = currentUser?.role === 'engineer' || currentUser?.role === 'admin' || currentUser?.role === 'superuser';
   const [dateReported, setDateReported] = useState(new Date().toISOString().split('T')[0]);
   const [equipmentName, setEquipmentName] = useState(equipmentList[0]?.equipment_name || 'Chiller-01');
   const [findings, setFindings] = useState('');
@@ -227,7 +230,26 @@ export const DefectReportsView: React.FC<DefectReportsViewProps> = ({
                     <td className="p-3 text-emerald-400 font-bold whitespace-nowrap">{log.equipment_name}</td>
                     <td className="p-3 text-slate-200 max-w-xs">{log.findings}</td>
                     <td className="p-3 text-slate-300 whitespace-nowrap">{log.attended_by}</td>
-                    <td className="p-3">
+<td className="p-3">
+                      {canEditStatus ? (
+                        <select
+                          value={log.status}
+                          onChange={(e) => onUpdateStatus(log.id, e.target.value as DefectStatus)}
+                          className={`text-[11px] font-bold px-2 py-1 rounded bg-slate-950 border uppercase cursor-pointer focus:outline-none ${
+                            log.status === 'Critical' ? 'text-red-400 border-red-500/30' :
+                            log.status === 'Minor' || log.status === 'Open' ? 'text-amber-400 border-amber-500/30' :
+                            log.status === 'Ongoing' ? 'text-cyan-400 border-cyan-500/30' :
+                            'text-emerald-400 border-emerald-500/30'
+                          }`}
+                        >
+                          <option value="Open">OPEN</option>
+                          <option value="Minor">MINOR</option>
+                          <option value="Critical">CRITICAL</option>
+                          <option value="Ongoing">ONGOING</option>
+                          <option value="Done">DONE</option>
+                          <option value="Repaired">REPAIRED</option>
+                        </select>
+                      ) : (
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
                         log.status === 'Critical' ? 'bg-red-500/10 text-red-400 border border-red-500/30' :
                         log.status === 'Minor' || log.status === 'Open' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' :
@@ -236,6 +258,7 @@ export const DefectReportsView: React.FC<DefectReportsViewProps> = ({
                       }`}>
                         {log.status}
                       </span>
+                      )}
                     </td>
                     <td className="p-3 text-slate-400 italic max-w-xs">{log.remarks || '—'}</td>
                     <td className="p-3">

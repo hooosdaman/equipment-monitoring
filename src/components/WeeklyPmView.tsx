@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
-import { Clock, CheckCircle2, XCircle, AlertCircle, Calendar, Plus, UserCheck } from 'lucide-react';
+import { Clock, CheckCircle2, XCircle, AlertCircle, Calendar, Plus, UserCheck, Trash2 } from 'lucide-react';
 import { WeeklyPmItem, WeeklyPmStatus, User } from '../types';
 
 interface WeeklyPmViewProps {
   schedule: WeeklyPmItem[];
   onUpdateStatus: (id: number, status: WeeklyPmStatus) => Promise<void>;
   onAddSchedule: (data: Partial<WeeklyPmItem>) => Promise<void>;
+  onDeleteSchedule: (id: number) => Promise<void>;
   currentUser: User | null;
 }
 
-export const WeeklyPmView: React.FC<WeeklyPmViewProps> = ({ schedule, onUpdateStatus, onAddSchedule, currentUser }) => {
+export const WeeklyPmView: React.FC<WeeklyPmViewProps> = ({ schedule, onUpdateStatus, onAddSchedule, onDeleteSchedule, currentUser }) => {
   const isReadOnly = currentUser?.role === 'user';
   const [showAddModal, setShowAddModal] = useState(false);
   const [newItem, setNewItem] = useState({
@@ -78,6 +79,7 @@ export const WeeklyPmView: React.FC<WeeklyPmViewProps> = ({ schedule, onUpdateSt
               <th className="p-3">Scheduled Date</th>
 <th className="p-3">Assigned Technician</th>
               <th className="p-3">{isReadOnly ? 'Status' : 'Status Action'}</th>
+              {!isReadOnly && <th className="p-3 text-center">Delete</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800/60">
@@ -112,12 +114,27 @@ export const WeeklyPmView: React.FC<WeeklyPmViewProps> = ({ schedule, onUpdateSt
                           : 'text-amber-400 border-amber-500/30'
                       }`}
                     >
-                      <option value="scheduled">SCHEDULED</option>
+<option value="scheduled">SCHEDULED</option>
                       <option value="completed">COMPLETED</option>
                       <option value="cancelled">CANCELLED</option>
                     </select>
                   )}
                 </td>
+                {!isReadOnly && (
+                  <td className="p-3 text-center">
+                    <button
+                      onClick={() => {
+                        if (window.confirm(`Delete Weekly PM schedule for ${item.equipment_name}?`)) {
+                          onDeleteSchedule(item.id);
+                        }
+                      }}
+                      className="p-1.5 rounded hover:bg-red-500/20 text-red-400 transition"
+                      title="Delete Weekly PM schedule"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

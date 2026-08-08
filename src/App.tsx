@@ -21,6 +21,7 @@ import {
   PMMasterlistItem,
   WeeklyPmItem,
   DefectReport,
+  DefectStatus,
   NeedActionItem,
   DashboardMetrics,
   NeedActionStatus,
@@ -219,7 +220,7 @@ export default function App() {
     refreshAllData();
   };
 
-  const handleLogDefectReport = async (data: Partial<DefectReport>) => {
+const handleLogDefectReport = async (data: Partial<DefectReport>) => {
     const res = await fetch('/api/defect-reports', {
       method: 'POST',
       headers: authHeaders(),
@@ -228,6 +229,19 @@ export default function App() {
     if (!res.ok) {
       const err = await res.json();
       throw new Error(err.error || 'Failed logging defect report');
+    }
+    refreshAllData();
+  };
+
+  const handleUpdateDefectReportStatus = async (id: number, status: DefectStatus, remarks?: string) => {
+    const res = await fetch(`/api/defect-reports/${id}`, {
+      method: 'PUT',
+      headers: authHeaders(),
+      body: JSON.stringify({ status, remarks })
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed updating defect report');
     }
     refreshAllData();
   };
@@ -309,7 +323,7 @@ export default function App() {
     refreshAllData();
   };
 
-  const handleAddWeeklyPm = async (data: Partial<WeeklyPmItem>) => {
+const handleAddWeeklyPm = async (data: Partial<WeeklyPmItem>) => {
     const res = await fetch('/api/weekly-pm', {
       method: 'POST',
       headers: authHeaders(),
@@ -318,6 +332,18 @@ export default function App() {
     if (!res.ok) {
       const err = await res.json();
       throw new Error(err.error || 'Failed adding weekly PM');
+    }
+    refreshAllData();
+  };
+
+  const handleDeleteWeeklyPm = async (id: number) => {
+    const res = await fetch(`/api/weekly-pm/${id}`, {
+      method: 'DELETE',
+      headers: authHeaders()
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed deleting weekly PM schedule');
     }
     refreshAllData();
   };
@@ -381,6 +407,7 @@ export default function App() {
               reports={defectReports}
               equipmentList={equipmentList}
               onSubmitReport={handleLogDefectReport}
+              onUpdateStatus={handleUpdateDefectReportStatus}
               currentUser={currentUser}
             />
           )}
@@ -400,6 +427,7 @@ export default function App() {
               schedule={weeklyPm}
               onUpdateStatus={handleUpdateWeeklyPmStatus}
               onAddSchedule={handleAddWeeklyPm}
+              onDeleteSchedule={handleDeleteWeeklyPm}
               currentUser={currentUser}
             />
           )}
