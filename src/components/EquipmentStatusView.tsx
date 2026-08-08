@@ -275,7 +275,7 @@ export const EquipmentStatusView: React.FC<EquipmentStatusViewProps> = ({
             <Cpu className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-lg font-bold font-mono text-white">Equipment Status Terminal Grid</h1>
+<h1 className="text-lg font-bold font-mono text-white">Equipment Status</h1>
           </div>
         </div>
 

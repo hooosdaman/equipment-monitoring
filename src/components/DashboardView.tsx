@@ -49,9 +49,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </span>
             <span className="text-xs font-mono text-slate-500">REALTIME METRICS FEED</span>
           </div>
-          <h1 className="text-xl font-bold font-mono text-white mt-1">Forex Equipment Status Dashboard</h1>
+<h1 className="text-xl font-bold font-mono text-white mt-1">Equipment Status Dashboard</h1>
           <p className="text-xs text-slate-400">
-            Real-time monitoring of monthly PM completion, equipment health indices, and defect logs.
+            Real-time monitoring of monthly PM completion, equipment health, and defect logs.
           </p>
         </div>
 

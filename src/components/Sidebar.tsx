@@ -130,12 +130,11 @@ const canSeeAccounts = currentUser?.role === 'superuser' || currentUser?.role ==
           </div>
         </div>
 
-        <div className="mt-2 px-2 flex items-center justify-between text-[10px] text-slate-500 font-mono">
+<div className="mt-2 px-2 flex items-center justify-between text-[10px] text-slate-500 font-mono">
           <span className="flex items-center gap-1">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
             LIVE FEED
           </span>
-          <span>SQLite / Supabase</span>
         </div>
       </div>
     </aside>
