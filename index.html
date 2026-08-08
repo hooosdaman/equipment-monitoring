@@ -9,12 +9,25 @@
   <body class="bg-slate-950 text-slate-100 antialiased selection:bg-emerald-500 selection:text-slate-950">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-    <link href="https://cdn.jsdelivr.net/npm/@n8n/chat/dist/style.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/@n8n/chat/dist/style.css" rel="stylesheet" />
+<style>
+      /* Hide the default "Powered by n8n" footer in the chat widget */
+      .chat-footer,
+      .chat-powered-by,
+      .chat-powered-by a,
+      .n8n-chat-footer,
+      .footer {
+        display: none !important;
+      }
+    </style>
     <script type="module">
       import { createChat } from 'https://cdn.jsdelivr.net/npm/@n8n/chat/dist/chat.bundle.es.js';
 
-      createChat({
-        webhookUrl: 'https://refining-anguished-hull.ngrok-free.dev/webhook/3fc4e75f-91c7-4298-bfd5-e937d232fa11/chat'
+createChat({
+        webhookUrl: 'https://refining-anguished-hull.ngrok-free.dev/webhook/3fc4e75f-91c7-4298-bfd5-e937d232fa11/chat',
+        i18n: {
+          title: 'Handy Hank'
+        }
       });
     </script>
   </body>
