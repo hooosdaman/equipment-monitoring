@@ -1,12 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = process.env.SUPABASE_URL || '';
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
-
 let supabaseClient: any = null;
 let warnedMissingConfig = false;
 
 export function getSupabase() {
+  // Read env lazily at call-time so dotenv.config() has already run when invoked.
+  // Reading module-level constants at import time would capture empty values because
+  // import statements are hoisted above dotenv.config() in the entry point.
+  const SUPABASE_URL = process.env.SUPABASE_URL || '';
+  const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     if (!warnedMissingConfig) {
       console.warn(

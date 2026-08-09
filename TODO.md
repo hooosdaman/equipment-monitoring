@@ -28,6 +28,12 @@
 
 **Root cause fixed:** The Weekly PM page reads rows from Supabase (IDs like 25, 35), but the PUT/DELETE endpoints were still looking up those IDs in the local SQLite `weekly_pm_schedule` table, which has different auto-increment IDs → returned 404 → Status Action changes failed. Now all reads/writes go directly to the Supabase `weekly_pm_schedule` table.
 
+## Critical Fix - Env Loading Order (from latest feedback)
+- [x] 19. supabaseSync.ts - **Root cause of persistent sync failure:** `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` were read as **module-level constants at import time**, which is **hoisted above** `dotenv.config()` in `server.ts`. This captured empty values, so `getSupabase()` always returned `null` and every sync silently no-opped regardless of the earlier endpoint fixes.
+- [x] 20. supabaseSync.ts - `getSupabase()` now reads `process.env.SUPABASE_URL` / `process.env.SUPABASE_SERVICE_ROLE_KEY` **lazily inside the function**, so env is guaranteed loaded before any sync call.
+
+**Verified end-to-end via diagnostic script:** Fetched 12 rows from Supabase `weekly_pm_schedule`, updated status `scheduled → completed` (persisted), and restored `completed → scheduled` (persisted). All reads/writes now reach Supabase.
+
 ## Verification
 - [x] Build verified via `npm run build` (vite frontend + esbuild server bundle)
 - [x] `tsc --noEmit` passes (exit code 0)
