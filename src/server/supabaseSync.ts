@@ -4,9 +4,20 @@ const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 let supabaseClient: any = null;
+let warnedMissingConfig = false;
 
 export function getSupabase() {
-  if (!supabaseClient && SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY) {
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    if (!warnedMissingConfig) {
+      console.warn(
+        '[SupabaseSync] Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY. ' +
+        'Equipment changes will NOT be synced to Supabase. Please configure the .env file.'
+      );
+      warnedMissingConfig = true;
+    }
+    return null;
+  }
+  if (!supabaseClient) {
     try {
       supabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     } catch (err) {
@@ -16,9 +27,9 @@ export function getSupabase() {
   return supabaseClient;
 }
 
-export async function syncEquipmentToSupabase(equipmentData: any) {
+export async function syncEquipmentToSupabase(equipmentData: any): Promise<boolean> {
   const supabase = getSupabase();
-  if (!supabase) return;
+  if (!supabase) return false;
 
   try {
     const payload = {
@@ -35,27 +46,33 @@ export async function syncEquipmentToSupabase(equipmentData: any) {
     const { error } = await supabase.from('equipment_list').upsert([payload], { onConflict: 'id' });
     if (error) {
       console.warn('Supabase equipment_list sync error:', error.message);
+      return false;
     } else {
       console.log(`Synced equipment ${equipmentData.equipment_name} (ID: ${equipmentData.id}) to Supabase equipment_list`);
+      return true;
     }
   } catch (err) {
     console.warn('Supabase equipment sync exception:', err);
+    return false;
   }
 }
 
-export async function deleteEquipmentFromSupabase(id: number) {
+export async function deleteEquipmentFromSupabase(id: number): Promise<boolean> {
   const supabase = getSupabase();
-  if (!supabase) return;
+  if (!supabase) return false;
 
   try {
     const { error } = await supabase.from('equipment_list').delete().eq('id', id);
     if (error) {
       console.warn('Supabase delete equipment error:', error.message);
+      return false;
     } else {
       console.log(`Deleted equipment ID ${id} from Supabase equipment_list`);
+      return true;
     }
   } catch (err) {
     console.warn('Supabase delete equipment exception:', err);
+    return false;
   }
 }
 

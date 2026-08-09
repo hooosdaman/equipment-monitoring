@@ -55,8 +55,8 @@ async function startServer() {
     });
   };
 
-  // Helper function to auto-adjust equipment status based on repair logs
-  const adjustEquipmentStatus = (equipmentName: string) => {
+// Helper function to auto-adjust equipment status based on repair logs
+  const adjustEquipmentStatus = async (equipmentName: string) => {
     // Check latest active defect report for this equipment
     const reports = queryAll(
       db,
@@ -87,10 +87,10 @@ async function startServer() {
     ]);
     saveDb();
 
-    // Get updated equipment item and sync to Supabase
+// Get updated equipment item and sync to Supabase
     const updatedEq = queryOne(db, 'SELECT * FROM equipment WHERE LOWER(equipment_name) = LOWER(?)', [equipmentName]);
     if (updatedEq) {
-      syncEquipmentToSupabase(updatedEq);
+      await syncEquipmentToSupabase(updatedEq);
     }
     return newStatus;
   };
@@ -215,7 +215,7 @@ async function startServer() {
     res.json(items);
   });
 
-  app.post('/api/equipment', authenticateToken, (req: AuthRequest, res: Response) => {
+app.post('/api/equipment', authenticateToken, async (req: AuthRequest, res: Response) => {
     const userRole = req.user?.role;
     if (userRole === 'user') {
       return res.status(403).json({ error: 'Helpdesk users cannot add new equipment' });
@@ -243,7 +243,7 @@ async function startServer() {
       ]
     );
 
-    const newEquipment = queryOne(db, 'SELECT * FROM equipment WHERE id = ?', [result.lastInsertRowid]);
+const newEquipment = queryOne(db, 'SELECT * FROM equipment WHERE id = ?', [result.lastInsertRowid]);
 
     // Also insert into PM Masterlist
     db.run(
@@ -252,15 +252,15 @@ async function startServer() {
     );
     saveDb();
 
-    // Sync to Supabase equipment_list table
+    // Sync to Supabase equipment_list table (always awaited to guarantee propagation)
     if (newEquipment) {
-      syncEquipmentToSupabase(newEquipment);
+      await syncEquipmentToSupabase(newEquipment);
     }
 
     res.status(201).json(newEquipment);
   });
 
-  app.put('/api/equipment/:id', authenticateToken, (req: AuthRequest, res: Response) => {
+app.put('/api/equipment/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
     const userRole = req.user?.role;
     if (userRole === 'user') {
       return res.status(403).json({ error: 'Helpdesk users cannot update equipment' });
@@ -291,17 +291,17 @@ async function startServer() {
     );
     saveDb();
 
-    const updated = queryOne(db, 'SELECT * FROM equipment WHERE id = ?', [id]);
+const updated = queryOne(db, 'SELECT * FROM equipment WHERE id = ?', [id]);
 
-    // Sync to Supabase
+    // Sync to Supabase (always awaited to guarantee propagation)
     if (updated) {
-      syncEquipmentToSupabase(updated);
+      await syncEquipmentToSupabase(updated);
     }
 
     res.json(updated);
   });
 
-  app.delete('/api/equipment/:id', authenticateToken, (req: AuthRequest, res: Response) => {
+app.delete('/api/equipment/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
     const userRole = req.user?.role;
     if (userRole === 'user') {
       return res.status(403).json({ error: 'Helpdesk users cannot delete equipment' });
@@ -313,11 +313,11 @@ async function startServer() {
       return res.status(404).json({ error: 'Equipment not found' });
     }
 
-    db.run('DELETE FROM equipment WHERE id = ?', [id]);
+db.run('DELETE FROM equipment WHERE id = ?', [id]);
     saveDb();
 
-    // Sync deletion to Supabase
-    deleteEquipmentFromSupabase(id);
+    // Sync deletion to Supabase (always awaited to guarantee propagation)
+    await deleteEquipmentFromSupabase(id);
 
     res.json({ message: 'Equipment deleted successfully', id });
   });
@@ -410,7 +410,7 @@ async function startServer() {
     res.json(items);
   });
 
-app.post('/api/weekly-pm', authenticateToken, (req: AuthRequest, res: Response) => {
+app.post('/api/weekly-pm', authenticateToken, async (req: AuthRequest, res: Response) => {
     const userRole = req.user?.role;
     if (userRole === 'user') {
       return res.status(403).json({ error: 'Helpdesk users can only view Weekly PM schedules' });
@@ -428,15 +428,15 @@ app.post('/api/weekly-pm', authenticateToken, (req: AuthRequest, res: Response) 
 
     const created = queryOne(db, 'SELECT * FROM weekly_pm_schedule WHERE id = ?', [result.lastInsertRowid]);
 
-    // Sync to Supabase weekly_pm_schedule
+    // Sync to Supabase weekly_pm_schedule (always awaited to guarantee propagation)
     if (created) {
-      syncWeeklyPmToSupabase(created);
+      await syncWeeklyPmToSupabase(created);
     }
 
     res.status(201).json(created);
   });
 
-app.put('/api/weekly-pm/:id', authenticateToken, (req: AuthRequest, res: Response) => {
+app.put('/api/weekly-pm/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
     const userRole = req.user?.role;
     if (userRole === 'user') {
       return res.status(403).json({ error: 'Helpdesk users can only view Weekly PM schedules' });
@@ -459,21 +459,21 @@ const now = new Date().toISOString();
 
     const updated = queryOne(db, 'SELECT * FROM weekly_pm_schedule WHERE id = ?', [id]);
 
-    // Always sync status updates to Supabase weekly_pm_schedule
+    // Always sync status updates to Supabase weekly_pm_schedule (awaited to guarantee propagation)
     if (updated) {
-      syncWeeklyPmToSupabase(updated);
+      await syncWeeklyPmToSupabase(updated);
     }
 
-    // When completed or cancelled, also log to Supabase pm_logs
+    // When completed or cancelled, also log to Supabase pm_logs (awaited to guarantee propagation)
     if (updated && (updated.status === 'completed' || updated.status === 'cancelled')) {
-      syncWeeklyPmToPmLogs(updated);
+      await syncWeeklyPmToPmLogs(updated);
     }
 
     res.json(updated);
   });
 
   // Delete Weekly PM schedule item (also removes from Supabase weekly_pm_schedule)
-  app.delete('/api/weekly-pm/:id', authenticateToken, (req: AuthRequest, res: Response) => {
+  app.delete('/api/weekly-pm/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
     const userRole = req.user?.role;
     if (userRole === 'user') {
       return res.status(403).json({ error: 'Helpdesk users cannot delete Weekly PM schedules' });
@@ -488,8 +488,8 @@ const now = new Date().toISOString();
     db.run('DELETE FROM weekly_pm_schedule WHERE id = ?', [id]);
     saveDb();
 
-    // Sync deletion to Supabase weekly_pm_schedule
-    deleteWeeklyPmFromSupabase(id);
+    // Sync deletion to Supabase weekly_pm_schedule (awaited to guarantee propagation)
+    await deleteWeeklyPmFromSupabase(id);
 
     res.json({ message: 'Weekly PM schedule deleted successfully', id });
   });
