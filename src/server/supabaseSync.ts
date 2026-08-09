@@ -202,6 +202,61 @@ export async function fetchWeeklyPmFromSupabase(): Promise<any[]> {
   }
 }
 
+export async function insertWeeklyPmToSupabase(pmItem: any): Promise<any | null> {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+
+  try {
+    const payload: any = {
+      equipment: pmItem.equipment_name,
+      system: pmItem.system,
+      location: pmItem.location,
+      pm_type: pmItem.pm_type,
+      date: pmItem.scheduled_date,
+      week: pmItem.week_number,
+      status: pmItem.status || 'scheduled',
+      remarks: pmItem.remarks || null,
+      AttendedBy: pmItem.assigned_to
+    };
+    if (pmItem.id) payload.id = pmItem.id;
+
+    const { data, error } = await supabase
+      .from('weekly_pm_schedule')
+      .insert(payload)
+      .select('*')
+      .single();
+    if (error) {
+      console.warn('Supabase weekly_pm_schedule insert error:', error.message);
+      return null;
+    }
+    return supabaseRowToWeeklyPm(data);
+  } catch (err) {
+    console.warn('Supabase weekly_pm_schedule insert exception:', err);
+    return null;
+  }
+}
+
+export async function fetchWeeklyPmByIdFromSupabase(id: number): Promise<any | null> {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+
+  try {
+    const { data, error } = await supabase
+      .from('weekly_pm_schedule')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (error) {
+      console.warn('Supabase weekly_pm_schedule fetch-by-id error:', error.message);
+      return null;
+    }
+    return supabaseRowToWeeklyPm(data);
+  } catch (err) {
+    console.warn('Supabase weekly_pm_schedule fetch-by-id exception:', err);
+    return null;
+  }
+}
+
 export async function deleteWeeklyPmFromSupabase(id: number) {
   const supabase = getSupabase();
   if (!supabase) return;

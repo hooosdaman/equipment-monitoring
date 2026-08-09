@@ -13,8 +13,10 @@ import {
   syncDefectReportToSupabase,
   syncWeeklyPmToSupabase,
   deleteWeeklyPmFromSupabase,
-  syncWeeklyPmToPmLogs,
-  fetchWeeklyPmFromSupabase
+syncWeeklyPmToPmLogs,
+  fetchWeeklyPmFromSupabase,
+  fetchWeeklyPmByIdFromSupabase,
+  insertWeeklyPmToSupabase
 } from './src/server/supabaseSync';
 
 dotenv.config();
@@ -419,20 +421,21 @@ app.post('/api/weekly-pm', authenticateToken, async (req: AuthRequest, res: Resp
     }
 
     const { equipment_name, system, location, pm_type, scheduled_date, week_number, assigned_to, status } = req.body;
-    const now = new Date().toISOString();
 
-    const result = executeRun(
-      db,
-      `INSERT INTO weekly_pm_schedule (equipment_name, system, location, pm_type, scheduled_date, week_number, status, assigned_to, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [equipment_name, system, location, pm_type, scheduled_date, week_number || 32, status || 'scheduled', assigned_to || 'Maintenance Team', now]
-    );
+    // Insert directly into the Supabase weekly_pm_schedule table
+    const created = await insertWeeklyPmToSupabase({
+      equipment_name,
+      system,
+      location,
+      pm_type,
+      scheduled_date,
+      week_number: week_number || 32,
+      assigned_to: assigned_to || 'Maintenance Team',
+      status: status || 'scheduled'
+    });
 
-    const created = queryOne(db, 'SELECT * FROM weekly_pm_schedule WHERE id = ?', [result.lastInsertRowid]);
-
-    // Sync to Supabase weekly_pm_schedule (always awaited to guarantee propagation)
-    if (created) {
-      await syncWeeklyPmToSupabase(created);
+    if (!created) {
+      return res.status(500).json({ error: 'Failed to create Weekly PM schedule in Supabase' });
     }
 
     res.status(201).json(created);
@@ -447,34 +450,32 @@ app.put('/api/weekly-pm/:id', authenticateToken, async (req: AuthRequest, res: R
     const id = parseInt(req.params.id, 10);
     const { status, assigned_to, scheduled_date } = req.body;
 
-    const existing = queryOne(db, 'SELECT * FROM weekly_pm_schedule WHERE id = ?', [id]);
+    // Fetch the existing row directly from the Supabase weekly_pm_schedule table
+    const existing = await fetchWeeklyPmByIdFromSupabase(id);
     if (!existing) {
       return res.status(404).json({ error: 'Weekly PM entry not found' });
     }
 
-const now = new Date().toISOString();
-    db.run(
-      `UPDATE weekly_pm_schedule SET status = ?, assigned_to = ?, scheduled_date = ?, updated_at = ? WHERE id = ?`,
-      [status || existing.status, assigned_to || existing.assigned_to, scheduled_date || existing.scheduled_date, now, id]
-    );
-    saveDb();
+    // Build the updated item (frontend shape) preserving existing fields
+    const updatedItem = {
+      ...existing,
+      status: status || existing.status,
+      assigned_to: assigned_to || existing.assigned_to,
+      scheduled_date: scheduled_date || existing.scheduled_date
+    };
 
-    const updated = queryOne(db, 'SELECT * FROM weekly_pm_schedule WHERE id = ?', [id]);
+    // Update directly in Supabase weekly_pm_schedule
+    await syncWeeklyPmToSupabase(updatedItem);
 
-    // Always sync status updates to Supabase weekly_pm_schedule (awaited to guarantee propagation)
-    if (updated) {
-      await syncWeeklyPmToSupabase(updated);
+    // When completed or cancelled, also log to Supabase pm_logs
+    if (updatedItem.status === 'completed' || updatedItem.status === 'cancelled') {
+      await syncWeeklyPmToPmLogs(updatedItem);
     }
 
-    // When completed or cancelled, also log to Supabase pm_logs (awaited to guarantee propagation)
-    if (updated && (updated.status === 'completed' || updated.status === 'cancelled')) {
-      await syncWeeklyPmToPmLogs(updated);
-    }
-
-    res.json(updated);
+    res.json(updatedItem);
   });
 
-  // Delete Weekly PM schedule item (also removes from Supabase weekly_pm_schedule)
+  // Delete Weekly PM schedule item (removes from Supabase weekly_pm_schedule)
   app.delete('/api/weekly-pm/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
     const userRole = req.user?.role;
     if (userRole === 'user') {
@@ -482,15 +483,12 @@ const now = new Date().toISOString();
     }
 
     const id = parseInt(req.params.id, 10);
-    const existing = queryOne(db, 'SELECT * FROM weekly_pm_schedule WHERE id = ?', [id]);
+    const existing = await fetchWeeklyPmByIdFromSupabase(id);
     if (!existing) {
       return res.status(404).json({ error: 'Weekly PM entry not found' });
     }
 
-    db.run('DELETE FROM weekly_pm_schedule WHERE id = ?', [id]);
-    saveDb();
-
-    // Sync deletion to Supabase weekly_pm_schedule (awaited to guarantee propagation)
+    // Delete directly from Supabase weekly_pm_schedule
     await deleteWeeklyPmFromSupabase(id);
 
     res.json({ message: 'Weekly PM schedule deleted successfully', id });
