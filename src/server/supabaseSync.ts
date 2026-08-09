@@ -31,24 +31,22 @@ export async function syncEquipmentToSupabase(equipmentData: any): Promise<boole
   const supabase = getSupabase();
   if (!supabase) return false;
 
-  try {
+try {
     const payload = {
       id: equipmentData.id,
       system: equipmentData.system,
-      equipment_name: equipmentData.equipment_name,
-      specs: equipmentData.specs,
+      equipment_id: equipmentData.equipment_name,
+      specifications: equipmentData.specs,
       location: equipmentData.location,
-      status: equipmentData.status,
-      icon: equipmentData.icon,
-      updated_at: new Date().toISOString()
+      status: equipmentData.status
     };
 
-    const { error } = await supabase.from('equipment_list').upsert([payload], { onConflict: 'id' });
+    const { error } = await supabase.from('equipment').upsert([payload], { onConflict: 'id' });
     if (error) {
-      console.warn('Supabase equipment_list sync error:', error.message);
+      console.warn('Supabase equipment sync error:', error.message);
       return false;
     } else {
-      console.log(`Synced equipment ${equipmentData.equipment_name} (ID: ${equipmentData.id}) to Supabase equipment_list`);
+      console.log(`Synced equipment ${equipmentData.equipment_name} (ID: ${equipmentData.id}) to Supabase equipment table`);
       return true;
     }
   } catch (err) {
@@ -61,13 +59,13 @@ export async function deleteEquipmentFromSupabase(id: number): Promise<boolean> 
   const supabase = getSupabase();
   if (!supabase) return false;
 
-  try {
-    const { error } = await supabase.from('equipment_list').delete().eq('id', id);
+try {
+    const { error } = await supabase.from('equipment').delete().eq('id', id);
     if (error) {
       console.warn('Supabase delete equipment error:', error.message);
       return false;
     } else {
-      console.log(`Deleted equipment ID ${id} from Supabase equipment_list`);
+      console.log(`Deleted equipment ID ${id} from Supabase equipment table`);
       return true;
     }
   } catch (err) {
@@ -134,24 +132,45 @@ export async function syncDefectReportToSupabase(report: any) {
   }
 }
 
+// Map a local Weekly PM item to the Supabase weekly_pm_schedule row shape
+function weeklyPmToSupabaseRow(pmItem: any) {
+  return {
+    id: pmItem.id,
+    equipment: pmItem.equipment_name,
+    system: pmItem.system,
+    location: pmItem.location,
+    pm_type: pmItem.pm_type,
+    date: pmItem.scheduled_date,
+    week: pmItem.week_number,
+    status: pmItem.status,
+    remarks: pmItem.remarks || null,
+    AttendedBy: pmItem.assigned_to
+  };
+}
+
+// Map a Supabase weekly_pm_schedule row back to the frontend WeeklyPmItem shape
+function supabaseRowToWeeklyPm(row: any) {
+  return {
+    id: row.id,
+    equipment_name: row.equipment,
+    system: row.system,
+    location: row.location,
+    pm_type: row.pm_type,
+    scheduled_date: row.date ? String(row.date).slice(0, 10) : '',
+    week_number: typeof row.week === 'number' ? row.week : parseInt(row.week, 10) || 0,
+    status: row.status,
+    assigned_to: row.AttendedBy,
+    remarks: row.remarks || '',
+    updated_at: new Date().toISOString()
+  };
+}
+
 export async function syncWeeklyPmToSupabase(pmItem: any) {
   const supabase = getSupabase();
   if (!supabase) return;
 
   try {
-    const payload = {
-      id: pmItem.id,
-      equipment_name: pmItem.equipment_name,
-      system: pmItem.system,
-      location: pmItem.location,
-      pm_type: pmItem.pm_type,
-      scheduled_date: pmItem.scheduled_date,
-      week_number: pmItem.week_number,
-      status: pmItem.status,
-      assigned_to: pmItem.assigned_to,
-      updated_at: new Date().toISOString()
-    };
-
+    const payload = weeklyPmToSupabaseRow(pmItem);
     const { error } = await supabase.from('weekly_pm_schedule').upsert([payload], { onConflict: 'id' });
     if (error) {
       console.warn('Supabase weekly_pm_schedule sync error:', error.message);
@@ -160,6 +179,26 @@ export async function syncWeeklyPmToSupabase(pmItem: any) {
     }
   } catch (err) {
     console.warn('Supabase weekly_pm_schedule sync exception:', err);
+  }
+}
+
+export async function fetchWeeklyPmFromSupabase(): Promise<any[]> {
+  const supabase = getSupabase();
+  if (!supabase) return [];
+
+  try {
+    const { data, error } = await supabase
+      .from('weekly_pm_schedule')
+      .select('*')
+      .order('date', { ascending: true });
+    if (error) {
+      console.warn('Supabase weekly_pm_schedule fetch error:', error.message);
+      return [];
+    }
+    return (data || []).map(supabaseRowToWeeklyPm);
+  } catch (err) {
+    console.warn('Supabase weekly_pm_schedule fetch exception:', err);
+    return [];
   }
 }
 

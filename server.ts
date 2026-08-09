@@ -13,7 +13,8 @@ import {
   syncDefectReportToSupabase,
   syncWeeklyPmToSupabase,
   deleteWeeklyPmFromSupabase,
-  syncWeeklyPmToPmLogs
+  syncWeeklyPmToPmLogs,
+  fetchWeeklyPmFromSupabase
 } from './src/server/supabaseSync';
 
 dotenv.config();
@@ -404,9 +405,10 @@ db.run('DELETE FROM equipment WHERE id = ?', [id]);
     res.json({ message: 'Masterlist entry deleted', id });
   });
 
-  // Weekly PM Endpoints
-  app.get('/api/weekly-pm', authenticateToken, (req: AuthRequest, res: Response) => {
-    const items = queryAll(db, 'SELECT * FROM weekly_pm_schedule ORDER BY scheduled_date ASC');
+// Weekly PM Endpoints
+  app.get('/api/weekly-pm', authenticateToken, async (req: AuthRequest, res: Response) => {
+    // Fetch Weekly PM rows from the Supabase weekly_pm_schedule table
+    const items = await fetchWeeklyPmFromSupabase();
     res.json(items);
   });
 
