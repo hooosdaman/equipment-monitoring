@@ -584,7 +584,8 @@ const created = queryOne(db, 'SELECT * FROM defect_reports WHERE id = ?', [resul
     res.json(items);
   });
 
-  app.post('/api/need-action', authenticateToken, (req: AuthRequest, res: Response) => {
+  app.post('/api/need-action', authenticateToken, async (req: AuthRequest, res: Response) => {
+    console.log('[need-action POST] Request body:', req.body);
     const { date_reported, reported_by, complaint, location, status, remarks, photo_url } = req.body;
 
     if (!complaint || !location) {
@@ -592,10 +593,13 @@ const created = queryOne(db, 'SELECT * FROM defect_reports WHERE id = ?', [resul
     }
 
     const now = new Date().toISOString();
+    console.log('[need-action POST] Inserting with columns:', [
+      'date_reported', 'reported_by', 'complaint', 'location', 'status', 'remarks', 'photo_url', 'created_at', 'updated_at'
+    ]);
     const result = executeRun(
       db,
-      `INSERT INTO need_action (date_reported, reported_by, complaint, location, status, remarks, photo_url, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO need_action (date_reported, reported_by, complaint, location, status, remarks, photo_url, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         date_reported || new Date().toISOString().split('T')[0],
         reported_by || req.user?.username || 'Staff',
@@ -604,41 +608,51 @@ const created = queryOne(db, 'SELECT * FROM defect_reports WHERE id = ?', [resul
         status || 'open',
         remarks || '',
         photo_url || '',
+        now,
         now
       ]
     );
+    console.log('[need-action POST] Insert result:', result);
 
     const created = queryOne(db, 'SELECT * FROM need_action WHERE id = ?', [result.lastInsertRowid]);
+    console.log('[need-action POST] Query result for id', result.lastInsertRowid, ':', created);
+    if (!created) {
+      console.error('[need-action POST] INSERT FAILED - need_action table may be missing updated_at column');
+      console.error('[need-action POST] All need_action columns:', queryOne(db, 'PRAGMA table_info(need_action)'));
+    }
 
     // Sync to Supabase need_action table
     if (created) {
-      syncNeedActionToSupabase(created);
+      await syncNeedActionToSupabase(created);
     }
 
     res.status(201).json(created);
   });
 
-  app.put('/api/need-action/:id', authenticateToken, (req: AuthRequest, res: Response) => {
+  app.put('/api/need-action/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
     const id = parseInt(req.params.id, 10);
     const { status, remarks } = req.body;
+    console.log('[need-action PUT] id:', id, 'body:', req.body);
 
     const existing = queryOne(db, 'SELECT * FROM need_action WHERE id = ?', [id]);
     if (!existing) {
       return res.status(404).json({ error: 'Need Action item not found' });
     }
 
-    db.run('UPDATE need_action SET status = ?, remarks = ? WHERE id = ?', [
+    db.run('UPDATE need_action SET status = ?, remarks = ?, updated_at = ? WHERE id = ?', [
       status || existing.status,
       remarks !== undefined ? remarks : existing.remarks,
+      new Date().toISOString(),
       id
     ]);
     saveDb();
 
     const updated = queryOne(db, 'SELECT * FROM need_action WHERE id = ?', [id]);
+    console.log('[need-action PUT] Updated item:', updated);
 
     // Update in Supabase even when status changes!
     if (updated) {
-      syncNeedActionToSupabase(updated);
+      await syncNeedActionToSupabase(updated);
     }
 
     res.json(updated);

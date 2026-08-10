@@ -4,18 +4,12 @@ let supabaseClient: any = null;
 let warnedMissingConfig = false;
 
 export function getSupabase() {
-  // Read env lazily at call-time so dotenv.config() has already run when invoked.
-  // Reading module-level constants at import time would capture empty values because
-  // import statements are hoisted above dotenv.config() in the entry point.
   const SUPABASE_URL = process.env.SUPABASE_URL || '';
   const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
     if (!warnedMissingConfig) {
-      console.warn(
-        '[SupabaseSync] Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY. ' +
-        'Equipment changes will NOT be synced to Supabase. Please configure the .env file.'
-      );
+      console.warn('[SupabaseSync] Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY. Sync will be skipped.');
       warnedMissingConfig = true;
     }
     return null;
@@ -23,8 +17,9 @@ export function getSupabase() {
   if (!supabaseClient) {
     try {
       supabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      console.log('[SupabaseSync] Client initialized');
     } catch (err) {
-      console.warn('Failed initializing Supabase client:', err);
+      console.warn('[SupabaseSync] Failed initializing Supabase client:', err);
     }
   }
   return supabaseClient;
@@ -79,10 +74,13 @@ try {
 
 export async function syncNeedActionToSupabase(item: any) {
   const supabase = getSupabase();
-  if (!supabase) return;
+  if (!supabase) {
+    console.warn('[syncNeedActionToSupabase] Supabase client is null, skipping sync');
+    return;
+  }
 
   try {
-const payload = {
+    const payload = {
       id: item.id,
       date_reported: item.date_reported,
       reported_by: item.reported_by,
@@ -95,14 +93,16 @@ const payload = {
       updated_at: new Date().toISOString()
     };
 
+    console.log('[syncNeedActionToSupabase] Upserting payload:', JSON.stringify(payload));
+
     const { error } = await supabase.from('need_action').upsert([payload], { onConflict: 'id' });
     if (error) {
-      console.warn('Supabase need_action sync error:', error.message);
+      console.warn('[syncNeedActionToSupabase] Upsert error:', error);
     } else {
-      console.log(`Synced need_action item ID ${item.id} (Status: ${item.status}) to Supabase need_action table`);
+      console.log(`[syncNeedActionToSupabase] Synced need_action item ID ${item.id} (Status: ${item.status})`);
     }
   } catch (err) {
-    console.warn('Supabase need_action sync exception:', err);
+    console.warn('[syncNeedActionToSupabase] Exception:', err);
   }
 }
 

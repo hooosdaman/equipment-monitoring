@@ -83,8 +83,8 @@ export function queryOne(db: Database, sql: string, params: any[] = []): any | n
 
 export function executeRun(db: Database, sql: string, params: any[] = []): { lastInsertRowid: number; changes: number } {
   db.run(sql, params);
-  saveDb();
   const res = queryOne(db, 'SELECT last_insert_rowid() as id, changes() as cnt');
+  saveDb();
   return { lastInsertRowid: res?.id || 0, changes: res?.cnt || 0 };
 }
 
@@ -168,7 +168,31 @@ function initTablesAndSeed(db: Database) {
     );
   `);
 
-  // Need Action Table
+  // Need Action Table - migrate existing table if schema is outdated
+  const existingNeedActionColumns = queryAll(db, 'PRAGMA table_info(need_action)').map((c: any) => c.name);
+  const requiredNeedActionColumns = ['id', 'date_reported', 'reported_by', 'complaint', 'location', 'status', 'remarks', 'photo_url', 'created_at', 'updated_at'];
+  const missingNeedActionColumns = requiredNeedActionColumns.filter((col) => !existingNeedActionColumns.includes(col));
+  for (const col of missingNeedActionColumns) {
+    if (col === 'updated_at') {
+      db.run(`ALTER TABLE need_action ADD COLUMN updated_at TEXT NOT NULL DEFAULT ''`);
+    } else if (col === 'remarks') {
+      db.run(`ALTER TABLE need_action ADD COLUMN remarks TEXT`);
+    } else if (col === 'photo_url') {
+      db.run(`ALTER TABLE need_action ADD COLUMN photo_url TEXT`);
+    } else if (col === 'status') {
+      db.run(`ALTER TABLE need_action ADD COLUMN status TEXT NOT NULL DEFAULT 'open'`);
+    } else if (col === 'location') {
+      db.run(`ALTER TABLE need_action ADD COLUMN location TEXT NOT NULL DEFAULT ''`);
+    } else if (col === 'complaint') {
+      db.run(`ALTER TABLE need_action ADD COLUMN complaint TEXT NOT NULL DEFAULT ''`);
+    } else if (col === 'reported_by') {
+      db.run(`ALTER TABLE need_action ADD COLUMN reported_by TEXT NOT NULL DEFAULT ''`);
+    } else if (col === 'date_reported') {
+      db.run(`ALTER TABLE need_action ADD COLUMN date_reported TEXT NOT NULL DEFAULT ''`);
+    } else if (col === 'created_at') {
+      db.run(`ALTER TABLE need_action ADD COLUMN created_at TEXT NOT NULL DEFAULT ''`);
+    }
+  }
   db.run(`
     CREATE TABLE IF NOT EXISTS need_action (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -179,7 +203,8 @@ function initTablesAndSeed(db: Database) {
       status TEXT NOT NULL DEFAULT 'open',
       remarks TEXT,
       photo_url TEXT,
-      created_at TEXT NOT NULL
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT ''
     );
   `);
 
