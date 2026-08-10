@@ -17,7 +17,8 @@ import {
   fetchWeeklyPmFromSupabase,
   fetchWeeklyPmByIdFromSupabase,
   insertWeeklyPmToSupabase,
-  fetchNeedActionFromSupabase
+  fetchNeedActionFromSupabase,
+  fetchDefectReportsFromSupabase
 } from './src/server/supabaseSync';
 
 dotenv.config();
@@ -71,11 +72,11 @@ async function startServer() {
     let newStatus = 'operational';
     if (reports.length > 0) {
       const activeReport = reports.find(
-        (r) => r.status === 'Critical' || r.status === 'Minor' || r.status === 'Open' || r.status === 'Ongoing'
+        (r) => r.status === 'critical' || r.status === 'minor' || r.status === 'open' || r.status === 'ongoing'
       );
 
       if (activeReport) {
-        if (activeReport.status === 'Critical') {
+        if (activeReport.status === 'critical') {
           newStatus = 'critical';
         } else {
           newStatus = 'minor';
@@ -501,7 +502,7 @@ app.put('/api/weekly-pm/:id', authenticateToken, async (req: AuthRequest, res: R
     res.json(reports);
   });
 
-app.post('/api/defect-reports', authenticateToken, (req: AuthRequest, res: Response) => {
+app.post('/api/defect-reports', authenticateToken, async (req: AuthRequest, res: Response) => {
     const userRole = req.user?.role;
     if (userRole === 'user') {
       return res.status(403).json({ error: 'Helpdesk users cannot create or edit defect reports' });
@@ -523,18 +524,18 @@ app.post('/api/defect-reports', authenticateToken, (req: AuthRequest, res: Respo
         date_reported || new Date().toISOString().split('T')[0],
         findings,
         attended_by || req.user?.username || 'Helpdesk',
-        status || 'Open',
+        status || 'open',
         remarks || '',
         photo_url || '',
         now
       ]
     );
 
-const created = queryOne(db, 'SELECT * FROM defect_reports WHERE id = ?', [result.lastInsertRowid]);
+    const created = queryOne(db, 'SELECT * FROM defect_reports WHERE id = ?', [result.lastInsertRowid]);
 
     // Sync the new defect report to Supabase repair_logs table
     if (created) {
-      syncDefectReportToSupabase(created);
+      await syncDefectReportToSupabase(created);
     }
 
     // Automatically adjust equipment status based on repair logs!
@@ -543,8 +544,55 @@ const created = queryOne(db, 'SELECT * FROM defect_reports WHERE id = ?', [resul
     res.status(201).json({ report: created, updatedEquipmentStatus: updatedStatus });
   });
 
+  app.get('/api/defect-reports/export', authenticateToken, async (req: AuthRequest, res: Response) => {
+    const { dateFrom, dateTo, status, equipmentName } = req.query;
+
+    const filters: any = {};
+    if (dateFrom) filters.dateFrom = String(dateFrom);
+    if (dateTo) filters.dateTo = String(dateTo);
+    if (status) filters.status = String(status);
+    if (equipmentName) filters.equipmentName = String(equipmentName);
+
+    let rows = await fetchDefectReportsFromSupabase(filters);
+
+    if (!rows.length) {
+      let sql = 'SELECT * FROM defect_reports WHERE 1=1';
+      const params: any[] = [];
+      if (dateFrom) { sql += ' AND date_reported >= ?'; params.push(String(dateFrom)); }
+      if (dateTo) { sql += ' AND date_reported <= ?'; params.push(String(dateTo)); }
+      if (status) { sql += ' AND status = ?'; params.push(String(status)); }
+      if (equipmentName) { sql += ' AND equipment_name = ?'; params.push(String(equipmentName)); }
+      sql += ' ORDER BY id DESC';
+      rows = queryAll(db, sql, params);
+    }
+
+    if (!rows.length) {
+      return res.status(404).json({ error: 'No records found for the selected filters' });
+    }
+
+    const headers = ['id', 'date_reported', 'equipment_name', 'findings', 'attended_by', 'status', 'remarks', 'photo_url', 'created_at'];
+    const csvRows = [headers.join(',')];
+
+    for (const row of rows) {
+      const values = headers.map((header) => {
+        const value = row[header] ?? '';
+        const stringValue = String(value);
+        if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+          return `"${stringValue.replace(/"/g, '""')}"`;
+        }
+        return stringValue;
+      });
+      csvRows.push(values.join(','));
+    }
+
+    const csv = csvRows.join('\n');
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=repair_logs_${new Date().toISOString().split('T')[0]}.csv`);
+    res.send(csv);
+  });
+
   // Update defect report status / remarks (engineer, admin, superuser only)
-  app.put('/api/defect-reports/:id', authenticateToken, (req: AuthRequest, res: Response) => {
+  app.put('/api/defect-reports/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
     const userRole = req.user?.role;
     if (userRole === 'user') {
       return res.status(403).json({ error: 'Helpdesk users cannot edit defect reports' });
@@ -570,7 +618,7 @@ const created = queryOne(db, 'SELECT * FROM defect_reports WHERE id = ?', [resul
 
     // Sync updated defect report to Supabase repair_logs table
     if (updated) {
-      syncDefectReportToSupabase(updated);
+      await syncDefectReportToSupabase(updated);
     }
 
     // Automatically adjust equipment status based on the updated repair log
@@ -630,35 +678,6 @@ const created = queryOne(db, 'SELECT * FROM defect_reports WHERE id = ?', [resul
     res.status(201).json(created);
   });
 
-  app.put('/api/need-action/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
-    const id = parseInt(req.params.id, 10);
-    const { status, remarks } = req.body;
-    console.log('[need-action PUT] id:', id, 'body:', req.body);
-
-    const existing = queryOne(db, 'SELECT * FROM need_action WHERE id = ?', [id]);
-    if (!existing) {
-      return res.status(404).json({ error: 'Need Action item not found' });
-    }
-
-    db.run('UPDATE need_action SET status = ?, remarks = ?, updated_at = ? WHERE id = ?', [
-      status || existing.status,
-      remarks !== undefined ? remarks : existing.remarks,
-      new Date().toISOString(),
-      id
-    ]);
-    saveDb();
-
-    const updated = queryOne(db, 'SELECT * FROM need_action WHERE id = ?', [id]);
-    console.log('[need-action PUT] Updated item:', updated);
-
-    // Update in Supabase even when status changes!
-    if (updated) {
-      await syncNeedActionToSupabase(updated);
-    }
-
-    res.json(updated);
-  });
-
   app.get('/api/need-action/export', authenticateToken, async (req: AuthRequest, res: Response) => {
     const { dateFrom, dateTo, status, reportedBy } = req.query;
 
@@ -695,6 +714,35 @@ const created = queryOne(db, 'SELECT * FROM defect_reports WHERE id = ?', [resul
     res.send(csv);
   });
 
+  app.put('/api/need-action/:id', authenticateToken, async (req: AuthRequest, res: Response) => {
+    const id = parseInt(req.params.id, 10);
+    const { status, remarks } = req.body;
+    console.log('[need-action PUT] id:', id, 'body:', req.body);
+
+    const existing = queryOne(db, 'SELECT * FROM need_action WHERE id = ?', [id]);
+    if (!existing) {
+      return res.status(404).json({ error: 'Need Action item not found' });
+    }
+
+    db.run('UPDATE need_action SET status = ?, remarks = ?, updated_at = ? WHERE id = ?', [
+      status || existing.status,
+      remarks !== undefined ? remarks : existing.remarks,
+      new Date().toISOString(),
+      id
+    ]);
+    saveDb();
+
+    const updated = queryOne(db, 'SELECT * FROM need_action WHERE id = ?', [id]);
+    console.log('[need-action PUT] Updated item:', updated);
+
+    // Update in Supabase even when status changes!
+    if (updated) {
+      await syncNeedActionToSupabase(updated);
+    }
+
+    res.json(updated);
+  });
+
   // Dashboard Summary Data
   app.get('/api/dashboard/summary', authenticateToken, (req: AuthRequest, res: Response) => {
     const equipment = queryAll(db, 'SELECT * FROM equipment');
@@ -712,11 +760,11 @@ const created = queryOne(db, 'SELECT * FROM defect_reports WHERE id = ?', [resul
     const completedPm = weeklyPm.filter((p) => p.status === 'completed').length;
     const pmCompletionRate = totalPm > 0 ? Math.round((completedPm / totalPm) * 100) : 85;
 
-    const defectOpen = defectReports.filter((r) => r.status === 'Open' || r.status === 'Critical' || r.status === 'Minor').length;
-    const defectOngoing = defectReports.filter((r) => r.status === 'Ongoing').length;
-    const defectDone = defectReports.filter((r) => r.status === 'Done' || r.status === 'Repaired').length;
+    const defectOpen = defectReports.filter((r) => r.status === 'open' || r.status === 'critical' || r.status === 'minor').length;
+    const defectOngoing = defectReports.filter((r) => r.status === 'ongoing').length;
+    const defectDone = defectReports.filter((r) => r.status === 'done').length;
 
-    const pendingDefects = defectReports.filter((r) => r.status !== 'Done' && r.status !== 'Repaired');
+    const pendingDefects = defectReports.filter((r) => r.status !== 'done');
 
     res.json({
       metrics: {

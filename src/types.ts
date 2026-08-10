@@ -57,7 +57,7 @@ export interface WeeklyPmItem {
   updated_at: string;
 }
 
-export type DefectStatus = 'Open' | 'Minor' | 'Critical' | 'Ongoing' | 'Done' | 'Repaired';
+export type DefectStatus = 'open' | 'minor' | 'critical' | 'done';
 
 export interface DefectReport {
   id: number;

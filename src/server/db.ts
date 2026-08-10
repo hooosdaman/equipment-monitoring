@@ -304,7 +304,7 @@ function initTablesAndSeed(db: Database) {
     db.run(
       `INSERT INTO defect_reports (equipment_name, date_reported, findings, attended_by, status, remarks, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      ['Pump-03', now, 'Minor water leakage near mechanical seal gasket', 'Engineer John', 'Minor', 'Gasket replacement scheduled', new Date().toISOString()]
+      ['Pump-03', now, 'Minor water leakage near mechanical seal gasket', 'Engineer John', 'minor', 'Gasket replacement scheduled', new Date().toISOString()]
     );
   }
 

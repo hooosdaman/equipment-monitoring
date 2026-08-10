@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileText, Plus, Upload, CheckCircle2, AlertOctagon, Wrench, Image as ImageIcon, Lock } from 'lucide-react';
+import { FileText, Plus, Upload, CheckCircle2, AlertOctagon, Wrench, Image as ImageIcon, Lock, Download } from 'lucide-react';
 import { DefectReport, DefectStatus, Equipment, User } from '../types';
 
 interface DefectReportsViewProps {
@@ -8,6 +8,7 @@ interface DefectReportsViewProps {
   onSubmitReport: (data: Partial<DefectReport>) => Promise<void>;
   onUpdateStatus: (id: number, status: DefectStatus, remarks?: string) => Promise<void>;
   currentUser: User | null;
+  onExport?: (filters: { dateFrom?: string; dateTo?: string; status?: string; equipmentName?: string }) => Promise<void>;
 }
 
 export const DefectReportsView: React.FC<DefectReportsViewProps> = ({
@@ -15,7 +16,8 @@ export const DefectReportsView: React.FC<DefectReportsViewProps> = ({
   equipmentList,
   onSubmitReport,
   onUpdateStatus,
-  currentUser
+  currentUser,
+  onExport
 }) => {
   const isReadOnly = currentUser?.role === 'user';
   const canEditStatus = currentUser?.role === 'engineer' || currentUser?.role === 'admin' || currentUser?.role === 'superuser';
@@ -23,11 +25,18 @@ export const DefectReportsView: React.FC<DefectReportsViewProps> = ({
   const [equipmentName, setEquipmentName] = useState(equipmentList[0]?.equipment_name || 'Chiller-01');
   const [findings, setFindings] = useState('');
   const [attendedBy, setAttendedBy] = useState('');
-  const [status, setStatus] = useState<DefectStatus>('Minor');
+  const [status, setStatus] = useState<DefectStatus>('open');
   const [remarks, setRemarks] = useState('');
   const [photoUrl, setPhotoUrl] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
+
+  const [exportDateFrom, setExportDateFrom] = useState('');
+  const [exportDateTo, setExportDateTo] = useState('');
+  const [exportStatus, setExportStatus] = useState('');
+  const [exportEquipment, setExportEquipment] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
+  const [editingRemarks, setEditingRemarks] = useState<{ [id: number]: string }>({});
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -64,6 +73,23 @@ export const DefectReportsView: React.FC<DefectReportsViewProps> = ({
       console.error('Failed logging defect report:', err);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleExport = async () => {
+    if (!onExport) return;
+    setIsExporting(true);
+    try {
+      await onExport({
+        dateFrom: exportDateFrom || undefined,
+        dateTo: exportDateTo || undefined,
+        status: exportStatus || undefined,
+        equipmentName: exportEquipment || undefined,
+      });
+    } catch (err) {
+      console.error('Failed exporting defect reports CSV:', err);
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -155,16 +181,16 @@ export const DefectReportsView: React.FC<DefectReportsViewProps> = ({
             </div>
 
             <div>
-              <label className="block text-slate-400 mb-1">Defect Severity / Status</label>
+              <label className="block text-slate-400 mb-1">Status</label>
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value as DefectStatus)}
                 className="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded p-2 focus:outline-none focus:border-amber-500 font-bold"
               >
-                <option value="Minor">Minor Defect (Equipment Warning)</option>
-                <option value="Critical">Critical Defect (Equipment Offline/Down)</option>
-                <option value="Ongoing">Ongoing Repair</option>
-                <option value="Done">Done / Repaired (Restores Operational)</option>
+                <option value="open">Open</option>
+                <option value="minor">Minor</option>
+                <option value="critical">Critical</option>
+                <option value="done">Done</option>
               </select>
             </div>
 
@@ -208,7 +234,71 @@ export const DefectReportsView: React.FC<DefectReportsViewProps> = ({
               <h2 className="text-sm font-mono font-bold text-white uppercase flex items-center gap-2">
               <Wrench className="w-4 h-4 text-amber-400" /> Repair Logs ({reports.length})
             </h2>
+            {onExport && (
+              <button
+                type="button"
+                onClick={handleExport}
+                disabled={isExporting}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-emerald-500 hover:from-amber-400 hover:to-emerald-400 text-slate-950 font-bold uppercase tracking-wider transition disabled:opacity-50 text-[11px]"
+              >
+                <Download className="w-4 h-4" />
+                {isExporting ? 'Exporting...' : 'Download CSV'}
+              </button>
+            )}
           </div>
+
+          {/* EXPORT FILTERS */}
+          {onExport && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs font-mono">
+              <div>
+                <label className="block text-slate-400 mb-1">Date From</label>
+                <input
+                  type="date"
+                  value={exportDateFrom}
+                  onChange={(e) => setExportDateFrom(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded p-2 focus:outline-none focus:border-amber-500"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-400 mb-1">Date To</label>
+                <input
+                  type="date"
+                  value={exportDateTo}
+                  onChange={(e) => setExportDateTo(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded p-2 focus:outline-none focus:border-amber-500"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-400 mb-1">Status</label>
+                <select
+                  value={exportStatus}
+                  onChange={(e) => setExportStatus(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded p-2 focus:outline-none focus:border-amber-500"
+                >
+                  <option value="">All</option>
+                  <option value="open">Open</option>
+                  <option value="minor">Minor</option>
+                  <option value="critical">Critical</option>
+                  <option value="done">Done</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-slate-400 mb-1">Equipment</label>
+                <select
+                  value={exportEquipment}
+                  onChange={(e) => setExportEquipment(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded p-2 focus:outline-none focus:border-amber-500"
+                >
+                  <option value="">All</option>
+                  {equipmentList.map((eq) => (
+                    <option key={eq.id} value={eq.equipment_name}>
+                      {eq.equipment_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
 
           <div className="overflow-x-auto custom-scrollbar">
             <table className="w-full text-left text-xs font-mono border-collapse">
@@ -230,35 +320,58 @@ export const DefectReportsView: React.FC<DefectReportsViewProps> = ({
                     <td className="p-3 text-emerald-400 font-bold whitespace-nowrap">{log.equipment_name}</td>
                     <td className="p-3 text-slate-200 max-w-xs">{log.findings}</td>
                     <td className="p-3 text-slate-300 whitespace-nowrap">{log.attended_by}</td>
-<td className="p-3">
+                    <td className="p-3">
                       {canEditStatus ? (
                         <select
                           value={log.status}
                           onChange={(e) => onUpdateStatus(log.id, e.target.value as DefectStatus)}
                           className={`text-[11px] font-bold px-2 py-1 rounded bg-slate-950 border uppercase cursor-pointer focus:outline-none ${
-                            log.status === 'Critical' ? 'text-red-400 border-red-500/30' :
-                            log.status === 'Minor' || log.status === 'Open' ? 'text-amber-400 border-amber-500/30' :
-                            log.status === 'Ongoing' ? 'text-cyan-400 border-cyan-500/30' :
-                            'text-emerald-400 border-emerald-500/30'
+                            log.status === 'critical' ? 'text-red-400 border-red-500/30' :
+                            log.status === 'minor' || log.status === 'open' ? 'text-amber-400 border-amber-500/30' :
+                            log.status === 'ongoing' ? 'text-cyan-400 border-cyan-500/30' :
+                            'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
                           }`}
                         >
-                          <option value="Minor">Minor Defect (Equipment Warning)</option>
-                          <option value="Critical">Critical Defect (Equipment Offline/Down)</option>
-                          <option value="Ongoing">Ongoing Repair</option>
-                          <option value="Done">Done / Repaired (Restores Operational)</option>
+                          <option value="open">Open</option>
+                          <option value="minor">Minor</option>
+                          <option value="critical">Critical</option>
+                          <option value="done">Done</option>
                         </select>
                       ) : (
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                        log.status === 'Critical' ? 'bg-red-500/10 text-red-400 border border-red-500/30' :
-                        log.status === 'Minor' || log.status === 'Open' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' :
-                        log.status === 'Ongoing' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30' :
+                        log.status === 'critical' ? 'bg-red-500/10 text-red-400 border border-red-500/30' :
+                        log.status === 'minor' || log.status === 'open' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' :
+                        log.status === 'ongoing' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30' :
                         'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
                       }`}>
                         {log.status}
                       </span>
                       )}
                     </td>
-                    <td className="p-3 text-slate-400 italic max-w-xs">{log.remarks || '—'}</td>
+                    <td className="p-3">
+                      {canEditStatus ? (
+                        <input
+                          type="text"
+                          value={editingRemarks[log.id] ?? log.remarks ?? ''}
+                          onChange={(e) => setEditingRemarks((prev) => ({ ...prev, [log.id]: e.target.value }))}
+                          onBlur={() => {
+                            const newRemarks = editingRemarks[log.id];
+                            if (newRemarks !== undefined && newRemarks !== (log.remarks ?? '')) {
+                              onUpdateStatus(log.id, log.status, newRemarks);
+                            }
+                            setEditingRemarks((prev) => {
+                              const next = { ...prev };
+                              delete next[log.id];
+                              return next;
+                            });
+                          }}
+                          placeholder="Add remarks..."
+                          className="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded p-1.5 text-[11px] focus:outline-none focus:border-amber-500"
+                        />
+                      ) : (
+                        <span className="text-slate-400 italic max-w-xs">{log.remarks || '—'}</span>
+                      )}
+                    </td>
                     <td className="p-3">
                       {log.photo_url ? (
                         <a href={log.photo_url} target="_blank" rel="noreferrer" className="text-amber-400 hover:underline flex items-center gap-1">

@@ -143,6 +143,43 @@ export async function fetchNeedActionFromSupabase(filters?: {
   }
 }
 
+export async function fetchDefectReportsFromSupabase(filters?: {
+  dateFrom?: string;
+  dateTo?: string;
+  status?: string;
+  equipmentName?: string;
+}): Promise<any[]> {
+  const supabase = getSupabase();
+  if (!supabase) return [];
+
+  try {
+    let query = supabase.from('repair_logs').select('*');
+
+    if (filters?.dateFrom) {
+      query = query.gte('date_reported', filters.dateFrom);
+    }
+    if (filters?.dateTo) {
+      query = query.lte('date_reported', filters.dateTo);
+    }
+    if (filters?.status) {
+      query = query.eq('status', filters.status);
+    }
+    if (filters?.equipmentName) {
+      query = query.eq('equipment_name', filters.equipmentName);
+    }
+
+    const { data, error } = await query.order('id', { ascending: false });
+    if (error) {
+      console.warn('[fetchDefectReportsFromSupabase] Error:', error.message);
+      return [];
+    }
+    return data || [];
+  } catch (err) {
+    console.warn('[fetchDefectReportsFromSupabase] Exception:', err);
+    return [];
+  }
+}
+
 export async function syncDefectReportToSupabase(report: any) {
   const supabase = getSupabase();
   if (!supabase) return;

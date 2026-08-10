@@ -20,6 +20,7 @@ import { EquipmentIcon } from './EquipmentIcon';
 interface DashboardViewProps {
   metrics: DashboardMetrics | null;
   pendingDefects: DefectReport[];
+  needActionItems: NeedActionItem[];
   searchQuery: string;
   searchResults: {
     equipment: Equipment[];
@@ -32,11 +33,16 @@ interface DashboardViewProps {
 export const DashboardView: React.FC<DashboardViewProps> = ({
   metrics,
   pendingDefects,
+  needActionItems,
   searchQuery,
   searchResults,
   onNavigateTab
 }) => {
   const isSearchActive = searchQuery.trim().length > 0;
+
+  const openOrOngoingActions = needActionItems.filter(
+    (item) => item.status === 'open' || item.status === 'ongoing'
+  );
 
   return (
     <div className="space-y-6 text-slate-100">
@@ -388,14 +394,71 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     <td className="p-3 text-slate-300">{defect.attended_by}</td>
                     <td className="p-3">
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                        defect.status === 'Critical' ? 'bg-red-500/10 text-red-400 border border-red-500/30' :
-                        defect.status === 'Minor' || defect.status === 'Open' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' :
+                        defect.status === 'critical' ? 'bg-red-500/10 text-red-400 border border-red-500/30' :
+                        defect.status === 'minor' || defect.status === 'open' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' :
                         'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30'
                       }`}>
                         {defect.status}
                       </span>
                     </td>
                     <td className="p-3 text-slate-400 italic max-w-xs truncate">{defect.remarks || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* OPEN / ONGOING NEED ACTIONS AT BOTTOM */}
+      <div className="p-5 rounded-xl bg-slate-900 border border-slate-800 shadow-xl space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-cyan-400" />
+            <h3 className="text-sm font-mono font-bold text-white uppercase tracking-wider">
+              Open / Ongoing Need Actions
+            </h3>
+          </div>
+          <span className="text-xs font-mono text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2 py-0.5 rounded">
+            {openOrOngoingActions.length} ACTIVE
+          </span>
+        </div>
+
+        {openOrOngoingActions.length === 0 ? (
+          <div className="p-8 text-center bg-slate-950/60 rounded-lg border border-slate-800 text-slate-500 font-mono text-xs">
+            <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto mb-2 opacity-80" />
+            No open or ongoing need action items. All complaints resolved!
+          </div>
+        ) : (
+          <div className="overflow-x-auto custom-scrollbar">
+            <table className="w-full text-left text-xs font-mono border-collapse">
+              <thead>
+                <tr className="bg-slate-950 text-slate-400 border-b border-slate-800 uppercase text-[10px]">
+                  <th className="p-3">Date</th>
+                  <th className="p-3">Reported By</th>
+                  <th className="p-3">Complaint</th>
+                  <th className="p-3">Location</th>
+                  <th className="p-3">Status</th>
+                  <th className="p-3">Remarks</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60">
+                {openOrOngoingActions.map((item) => (
+                  <tr key={item.id} className="hover:bg-slate-800/40 transition">
+                    <td className="p-3 text-slate-300 font-bold whitespace-nowrap">{item.date_reported}</td>
+                    <td className="p-3 text-slate-300 whitespace-nowrap">{item.reported_by}</td>
+                    <td className="p-3 text-slate-200 max-w-xs truncate">{item.complaint}</td>
+                    <td className="p-3 text-slate-400 whitespace-nowrap">{item.location}</td>
+                    <td className="p-3">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                        item.status === 'open' ? 'bg-red-500/10 text-red-400 border border-red-500/30' :
+                        item.status === 'ongoing' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' :
+                        'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                      }`}>
+                        {item.status}
+                      </span>
+                    </td>
+                    <td className="p-3 text-slate-400 italic max-w-xs truncate">{item.remarks || '—'}</td>
                   </tr>
                 ))}
               </tbody>

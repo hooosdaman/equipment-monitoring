@@ -246,6 +246,32 @@ const handleLogDefectReport = async (data: Partial<DefectReport>) => {
     refreshAllData();
   };
 
+  const handleExportDefectReports = async (filters: { dateFrom?: string; dateTo?: string; status?: string; equipmentName?: string }) => {
+    const params = new URLSearchParams();
+    if (filters.dateFrom) params.set('dateFrom', filters.dateFrom);
+    if (filters.dateTo) params.set('dateTo', filters.dateTo);
+    if (filters.status) params.set('status', filters.status);
+    if (filters.equipmentName) params.set('equipmentName', filters.equipmentName);
+
+    const res = await fetch(`/api/defect-reports/export?${params.toString()}`, {
+      headers: authHeaders()
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Export failed' }));
+      throw new Error(err.error || 'Failed exporting defect reports CSV');
+    }
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `repair_logs_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  };
+
   const handleLogNeedAction = async (data: Partial<NeedActionItem>) => {
     const res = await fetch('/api/need-action', {
       method: 'POST',
@@ -414,6 +440,7 @@ const handleAddWeeklyPm = async (data: Partial<WeeklyPmItem>) => {
             <DashboardView
               metrics={metrics}
               pendingDefects={pendingDefects}
+              needActionItems={needActionItems}
               searchQuery={searchQuery}
               searchResults={searchResults}
               onNavigateTab={setActiveTab}
@@ -436,6 +463,7 @@ const handleAddWeeklyPm = async (data: Partial<WeeklyPmItem>) => {
               onSubmitReport={handleLogDefectReport}
               onUpdateStatus={handleUpdateDefectReportStatus}
               currentUser={currentUser}
+              onExport={handleExportDefectReports}
             />
           )}
 
