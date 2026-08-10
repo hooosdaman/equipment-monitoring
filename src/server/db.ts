@@ -168,6 +168,22 @@ function initTablesAndSeed(db: Database) {
     );
   `);
 
+  // Need Action Table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS need_action (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      date_reported TEXT NOT NULL,
+      reported_by TEXT NOT NULL,
+      complaint TEXT NOT NULL,
+      location TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'open',
+      remarks TEXT,
+      photo_url TEXT,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT ''
+    );
+  `);
+
   // Need Action Table - migrate existing table if schema is outdated
   const existingNeedActionColumns = queryAll(db, 'PRAGMA table_info(need_action)').map((c: any) => c.name);
   const requiredNeedActionColumns = ['id', 'date_reported', 'reported_by', 'complaint', 'location', 'status', 'remarks', 'photo_url', 'created_at', 'updated_at'];
@@ -193,20 +209,6 @@ function initTablesAndSeed(db: Database) {
       db.run(`ALTER TABLE need_action ADD COLUMN created_at TEXT NOT NULL DEFAULT ''`);
     }
   }
-  db.run(`
-    CREATE TABLE IF NOT EXISTS need_action (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      date_reported TEXT NOT NULL,
-      reported_by TEXT NOT NULL,
-      complaint TEXT NOT NULL,
-      location TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'open',
-      remarks TEXT,
-      photo_url TEXT,
-      created_at TEXT NOT NULL,
-      updated_at TEXT NOT NULL DEFAULT ''
-    );
-  `);
 
   // Seed default users if empty
   const userCount = queryOne(db, 'SELECT COUNT(*) as count FROM users');
