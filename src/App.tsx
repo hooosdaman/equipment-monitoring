@@ -272,6 +272,32 @@ const handleLogDefectReport = async (data: Partial<DefectReport>) => {
     refreshAllData();
   };
 
+  const handleExportNeedAction = async (filters: { dateFrom?: string; dateTo?: string; status?: string; reportedBy?: string }) => {
+    const params = new URLSearchParams();
+    if (filters.dateFrom) params.set('dateFrom', filters.dateFrom);
+    if (filters.dateTo) params.set('dateTo', filters.dateTo);
+    if (filters.status) params.set('status', filters.status);
+    if (filters.reportedBy) params.set('reportedBy', filters.reportedBy);
+
+    const res = await fetch(`/api/need-action/export?${params.toString()}`, {
+      headers: authHeaders()
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Export failed' }));
+      throw new Error(err.error || 'Failed exporting need action CSV');
+    }
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `need_action_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  };
+
   const handleUpdatePmMasterlist = async (id: number, data: Partial<PMMasterlistItem>) => {
     const res = await fetch(`/api/pm-masterlist/${id}`, {
       method: 'PUT',
@@ -399,6 +425,7 @@ const handleAddWeeklyPm = async (data: Partial<WeeklyPmItem>) => {
               items={needActionItems}
               onSubmitItem={handleLogNeedAction}
               onUpdateStatus={handleUpdateNeedActionStatus}
+              onExport={handleExportNeedAction}
             />
           )}
 

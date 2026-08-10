@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
-import { AlertTriangle, Plus, CheckCircle, Upload, MapPin, Clock, Filter, Image as ImageIcon } from 'lucide-react';
+import { AlertTriangle, Plus, CheckCircle, Upload, MapPin, Clock, Filter, Image as ImageIcon, Download } from 'lucide-react';
 import { NeedActionItem, NeedActionStatus } from '../types';
 
 interface NeedActionViewProps {
   items: NeedActionItem[];
   onSubmitItem: (data: Partial<NeedActionItem>) => Promise<void>;
   onUpdateStatus: (id: number, status: NeedActionStatus, remarks?: string) => Promise<void>;
+  onExport?: (filters: { dateFrom?: string; dateTo?: string; status?: string; reportedBy?: string }) => Promise<void>;
 }
 
-export const NeedActionView: React.FC<NeedActionViewProps> = ({ items, onSubmitItem, onUpdateStatus }) => {
+export const NeedActionView: React.FC<NeedActionViewProps> = ({ items, onSubmitItem, onUpdateStatus, onExport }) => {
   const [dateReported, setDateReported] = useState(new Date().toISOString().split('T')[0]);
   const [reportedBy, setReportedBy] = useState('');
   const [complaint, setComplaint] = useState('');
@@ -18,6 +19,12 @@ export const NeedActionView: React.FC<NeedActionViewProps> = ({ items, onSubmitI
   const [photoUrl, setPhotoUrl] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'all' | NeedActionStatus>('all');
+
+  const [exportDateFrom, setExportDateFrom] = useState('');
+  const [exportDateTo, setExportDateTo] = useState('');
+  const [exportStatus, setExportStatus] = useState('');
+  const [exportReportedBy, setExportReportedBy] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -56,10 +63,35 @@ export const NeedActionView: React.FC<NeedActionViewProps> = ({ items, onSubmitI
     }
   };
 
-  const filteredItems = items.filter((item) => {
-    if (statusFilter === 'all') return true;
-    return item.status === statusFilter;
-  });
+  const filteredItems = items
+    .filter((item) => {
+      if (statusFilter === 'all') return true;
+      return item.status === statusFilter;
+    })
+    .slice(0, 100)
+    .sort((a, b) => {
+      const order = { open: 0, ongoing: 1, done: 2 };
+      const diff = (order[a.status] ?? 99) - (order[b.status] ?? 99);
+      if (diff !== 0) return diff;
+      return b.id - a.id;
+    });
+
+  const handleExport = async () => {
+    if (!onExport) return;
+    setIsExporting(true);
+    try {
+      await onExport({
+        dateFrom: exportDateFrom || undefined,
+        dateTo: exportDateTo || undefined,
+        status: exportStatus || undefined,
+        reportedBy: exportReportedBy || undefined,
+      });
+    } catch (err) {
+      console.error('Failed exporting Need Action CSV:', err);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   return (
     <div className="space-y-6 text-slate-100 font-sans">
@@ -189,7 +221,6 @@ export const NeedActionView: React.FC<NeedActionViewProps> = ({ items, onSubmitI
               <Clock className="w-4 h-4 text-cyan-400" /> Need Action History ({filteredItems.length})
             </h2>
 
-            {/* Status Filter */}
             <div className="flex items-center gap-2 text-xs font-mono">
               <Filter className="w-3.5 h-3.5 text-slate-500" />
               <button
@@ -271,6 +302,69 @@ export const NeedActionView: React.FC<NeedActionViewProps> = ({ items, onSubmitI
           </div>
         </div>
       </div>
+
+      {/* EXPORT SECTION */}
+      {onExport && (
+        <div className="p-5 rounded-xl bg-slate-900 border border-slate-800 shadow-xl space-y-4">
+          <h3 className="text-sm font-mono font-bold text-white uppercase flex items-center gap-2">
+            <Download className="w-4 h-4 text-cyan-400" /> Export Need Action (CSV)
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs font-mono">
+            <div>
+              <label className="block text-slate-400 mb-1">Date From</label>
+              <input
+                type="date"
+                value={exportDateFrom}
+                onChange={(e) => setExportDateFrom(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded p-2 focus:outline-none focus:border-cyan-500"
+              />
+            </div>
+            <div>
+              <label className="block text-slate-400 mb-1">Date To</label>
+              <input
+                type="date"
+                value={exportDateTo}
+                onChange={(e) => setExportDateTo(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded p-2 focus:outline-none focus:border-cyan-500"
+              />
+            </div>
+            <div>
+              <label className="block text-slate-400 mb-1">Status</label>
+              <select
+                value={exportStatus}
+                onChange={(e) => setExportStatus(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded p-2 focus:outline-none focus:border-cyan-500"
+              >
+                <option value="">All</option>
+                <option value="open">Open</option>
+                <option value="ongoing">Ongoing</option>
+                <option value="done">Done</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-slate-400 mb-1">Reported By</label>
+              <input
+                type="text"
+                value={exportReportedBy}
+                onChange={(e) => setExportReportedBy(e.target.value)}
+                placeholder="e.g. dell"
+                className="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded p-2 focus:outline-none focus:border-cyan-500"
+              />
+            </div>
+            <div className="flex items-end">
+              <button
+                type="button"
+                onClick={handleExport}
+                disabled={isExporting}
+                className="w-full py-2 rounded-lg bg-gradient-to-r from-cyan-500 to-emerald-500 hover:from-cyan-400 hover:to-emerald-400 text-slate-950 font-bold uppercase tracking-wider transition disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                {isExporting ? 'Exporting...' : 'Download CSV'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

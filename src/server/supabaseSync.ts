@@ -106,6 +106,43 @@ export async function syncNeedActionToSupabase(item: any) {
   }
 }
 
+export async function fetchNeedActionFromSupabase(filters?: {
+  dateFrom?: string;
+  dateTo?: string;
+  status?: string;
+  reportedBy?: string;
+}): Promise<any[]> {
+  const supabase = getSupabase();
+  if (!supabase) return [];
+
+  try {
+    let query = supabase.from('need_action').select('*');
+
+    if (filters?.dateFrom) {
+      query = query.gte('date_reported', filters.dateFrom);
+    }
+    if (filters?.dateTo) {
+      query = query.lte('date_reported', filters.dateTo);
+    }
+    if (filters?.status) {
+      query = query.eq('status', filters.status);
+    }
+    if (filters?.reportedBy) {
+      query = query.ilike('reported_by', `%${filters.reportedBy}%`);
+    }
+
+    const { data, error } = await query.order('id', { ascending: false });
+    if (error) {
+      console.warn('[fetchNeedActionFromSupabase] Error:', error.message);
+      return [];
+    }
+    return data || [];
+  } catch (err) {
+    console.warn('[fetchNeedActionFromSupabase] Exception:', err);
+    return [];
+  }
+}
+
 export async function syncDefectReportToSupabase(report: any) {
   const supabase = getSupabase();
   if (!supabase) return;

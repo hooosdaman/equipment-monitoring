@@ -13,10 +13,11 @@ import {
   syncDefectReportToSupabase,
   syncWeeklyPmToSupabase,
   deleteWeeklyPmFromSupabase,
-syncWeeklyPmToPmLogs,
+  syncWeeklyPmToPmLogs,
   fetchWeeklyPmFromSupabase,
   fetchWeeklyPmByIdFromSupabase,
-  insertWeeklyPmToSupabase
+  insertWeeklyPmToSupabase,
+  fetchNeedActionFromSupabase
 } from './src/server/supabaseSync';
 
 dotenv.config();
@@ -656,6 +657,42 @@ const created = queryOne(db, 'SELECT * FROM defect_reports WHERE id = ?', [resul
     }
 
     res.json(updated);
+  });
+
+  app.get('/api/need-action/export', authenticateToken, async (req: AuthRequest, res: Response) => {
+    const { dateFrom, dateTo, status, reportedBy } = req.query;
+
+    const filters: any = {};
+    if (dateFrom) filters.dateFrom = String(dateFrom);
+    if (dateTo) filters.dateTo = String(dateTo);
+    if (status) filters.status = String(status);
+    if (reportedBy) filters.reportedBy = String(reportedBy);
+
+    const rows = await fetchNeedActionFromSupabase(filters);
+
+    if (!rows.length) {
+      return res.status(404).json({ error: 'No records found for the selected filters' });
+    }
+
+    const headers = ['id', 'date_reported', 'reported_by', 'complaint', 'location', 'status', 'remarks', 'photo_url', 'created_at', 'updated_at'];
+    const csvRows = [headers.join(',')];
+
+    for (const row of rows) {
+      const values = headers.map((header) => {
+        const value = row[header] ?? '';
+        const stringValue = String(value);
+        if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+          return `"${stringValue.replace(/"/g, '""')}"`;
+        }
+        return stringValue;
+      });
+      csvRows.push(values.join(','));
+    }
+
+    const csv = csvRows.join('\n');
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=need_action_${new Date().toISOString().split('T')[0]}.csv`);
+    res.send(csv);
   });
 
   // Dashboard Summary Data
